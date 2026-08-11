@@ -1,0 +1,19 @@
+{
+  "name": "MVH Kernel",
+  "version": "1.0",
+  "website": "https://MVHCLOUD.com",
+  "architecture": "x86_64",
+  "format": "ELF64",
+  "entry": "_kernel64_start",
+  "license": "MIT",
+  "release_log": "CHANGELOG.md",
+  "default_language": "en",
+  "languages": ["en", "de", "es", "fr"],
+  "keyboard_layout": "en-US",
+  "drivers": [
+    "vga-text-cursor",
+    "serial-uart-16550",
+    "ps2-keyboard-en-us",
+    "x86-cpuid"
+  ]
+}
