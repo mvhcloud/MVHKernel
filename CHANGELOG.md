@@ -18,5 +18,11 @@
 - Per-core CPU status bars in `statics`
 - Language selection removed from the startup screen
 - Staged hardware reboot display with progress dots
+- Volatile RAM filesystem with directories and text files
+- Relative and absolute path navigation with `cd` and `pwd`
+- File commands: `ls`, `mkdir`, `touch`, `write`, `append`, `cat`, `open`, `rm`
+- CMOS real-time clock driver and `date` command
+- PCI configuration driver and `lspci` command
+- Driver, version, hostname, user and echo commands
 - RAM and CPU panels removed from the startup screen
 - Standalone kernel manifest and MIT license

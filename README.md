@@ -10,6 +10,8 @@ make
 
 The 64-bit kernel is written to `build/kernel.elf`. GNU Make, GCC with x86_64 support and GNU ld are required. Bootloaders, OS integration, emulators and local tests are not part of this kernel project.
 
-Available commands: `help`, `about`, `ram`, `cpu`, `clear`, `reboot`.
+Available commands include `help`, `about`, `statics`, `ls`, `cd`, `pwd`, `mkdir`, `touch`, `write`, `append`, `cat`, `open`, `rm`, `echo`, `date`, `lspci`, `drivers`, `version`, `hostname`, `whoami`, `language`, `clear` and `reboot`.
+
+The built-in RAM filesystem is volatile and is reset on every boot.
 
 Lizenz: MIT

@@ -1,7 +1,10 @@
 #include <stdint.h>
 #include "mvh/cpu.h"
+#include "mvh/fs.h"
 #include "mvh/io.h"
 #include "mvh/keyboard.h"
+#include "mvh/pci.h"
+#include "mvh/rtc.h"
 #include "mvh/serial.h"
 #include "mvh/vga.h"
 
@@ -58,6 +61,64 @@ static int text_equals(const char *left, const char *right)
         right++;
     }
     return *left == *right;
+}
+
+static const char *command_argument(const char *command, const char *name)
+{
+    while (*name != '\0') {
+        if (*command++ != *name++) {
+            return 0;
+        }
+    }
+    if (*command == '\0') {
+        return command;
+    }
+    if (*command != ' ') {
+        return 0;
+    }
+    while (*command == ' ') {
+        command++;
+    }
+    return command;
+}
+
+static int split_path_text(const char *input, char *path, uint32_t capacity,
+                           const char **text)
+{
+    uint32_t length = 0;
+    while (*input == ' ') {
+        input++;
+    }
+    while (*input != '\0' && *input != ' ') {
+        if (length + 1u >= capacity) {
+            return -1;
+        }
+        path[length++] = *input++;
+    }
+    path[length] = '\0';
+    while (*input == ' ') {
+        input++;
+    }
+    if (length == 0u || *input == '\0') {
+        return -1;
+    }
+    *text = input;
+    return 0;
+}
+
+static void console_hex16(uint16_t value)
+{
+    static const char digits[] = "0123456789ABCDEF";
+    console_put(digits[(value >> 12u) & 0x0Fu]);
+    console_put(digits[(value >> 8u) & 0x0Fu]);
+    console_put(digits[(value >> 4u) & 0x0Fu]);
+    console_put(digits[value & 0x0Fu]);
+}
+
+static void console_two_digits(uint8_t value)
+{
+    console_put((char)('0' + value / 10u));
+    console_put((char)('0' + value % 10u));
 }
 
 static const char *localized(const char *english, const char *german,
@@ -312,8 +373,111 @@ static void reboot(void)
     }
 }
 
+static void command_ls(const char *path)
+{
+    fs_entry_t entries[FS_LIST_MAX];
+    int count = fs_list(path, entries, FS_LIST_MAX);
+    int index;
+    if (count < 0) {
+        console_write("ls: path not found\n");
+        return;
+    }
+    for (index = 0; index < count; index++) {
+        if (entries[index].is_directory != 0u) {
+            console_colored("[DIR]  ", 0x0Bu);
+            console_write(entries[index].name);
+        } else {
+            console_write("[FILE] ");
+            console_write(entries[index].name);
+            console_write("  ");
+            console_number(entries[index].size);
+            console_write(" bytes");
+        }
+        console_write("\n");
+    }
+    if (count == 0) {
+        console_write("Directory is empty.\n");
+    }
+}
+
+static void command_cat(const char *path)
+{
+    const char *data;
+    uint16_t size;
+    uint16_t index;
+    if (path[0] == '\0' || fs_read(path, &data, &size) != 0) {
+        console_write("cat: file not found\n");
+        return;
+    }
+    for (index = 0; index < size; index++) {
+        console_put(data[index]);
+    }
+    if (size == 0u || data[size - 1u] != '\n') {
+        console_write("\n");
+    }
+}
+
+static void command_date(void)
+{
+    rtc_time_t time;
+    rtc_read(&time);
+    console_number(time.year);
+    console_put('-');
+    console_two_digits(time.month);
+    console_put('-');
+    console_two_digits(time.day);
+    console_put(' ');
+    console_two_digits(time.hour);
+    console_put(':');
+    console_two_digits(time.minute);
+    console_put(':');
+    console_two_digits(time.second);
+    console_write(" UTC\n");
+}
+
+static void command_lspci(void)
+{
+    pci_device_t devices[32];
+    uint32_t count = pci_scan(devices, 32u);
+    uint32_t index;
+    for (index = 0; index < count; index++) {
+        console_number(devices[index].bus);
+        console_put(':');
+        console_number(devices[index].slot);
+        console_put('.');
+        console_number(devices[index].function);
+        console_write("  ");
+        console_hex16(devices[index].vendor);
+        console_put(':');
+        console_hex16(devices[index].device);
+        console_write("  ");
+        console_write(pci_class_name(devices[index].class_code));
+        console_write("\n");
+    }
+    if (count == 0u) {
+        console_write("No PCI devices found.\n");
+    }
+}
+
+static void command_drivers(void)
+{
+    console_colored("Loaded kernel drivers\n", 0x0Bu);
+    console_write("  vga-text-cursor       display and hardware cursor\n");
+    console_write("  ps2-keyboard-en-us    keyboard, Shift, Caps, Ctrl\n");
+    console_write("  serial-uart-16550     COM1 debug output\n");
+    console_write("  x86-cpuid             CPU detection\n");
+    console_write("  cmos-rtc              real-time clock\n");
+    console_write("  pci-config            PCI device discovery\n");
+    console_write("  ramfs                 volatile filesystem\n");
+}
+
 static void run_command(const char *command)
 {
+    const char *argument;
+    const char *text;
+    char path[FS_PATH_MAX];
+    char working_directory[FS_PATH_MAX];
+    int result;
     if (text_equals(command, "help")) {
         console_colored(localized("Available commands\n", "Verfuegbare Befehle\n",
                                   "Comandos disponibles\n", "Commandes disponibles\n"), 0x0Au);
@@ -322,6 +486,75 @@ static void run_command(const char *command)
             "  help         Diese Befehlsliste anzeigen\n  about        Systeminformationen anzeigen\n  statics      CPU- und RAM-Monitor oeffnen\n  language     Sprache anzeigen oder wechseln\n  clear        Bildschirm leeren\n  reboot       System neu starten\n",
             "  help         Mostrar esta lista\n  about        Mostrar informacion del sistema\n  statics      Abrir monitor de CPU y RAM\n  language     Mostrar o cambiar idioma\n  clear        Limpiar la pantalla\n  reboot       Reiniciar el sistema\n",
             "  help         Afficher cette liste\n  about        Afficher les informations systeme\n  statics      Ouvrir le moniteur CPU et RAM\n  language     Afficher ou changer la langue\n  clear        Effacer l'ecran\n  reboot       Redemarrer le systeme\n"));
+        console_write("\nFilesystem: ls cd pwd mkdir touch write append cat open rm\n");
+        console_write("System:     date lspci drivers version hostname whoami echo\n");
+        console_write("Use '<command> help' is not required; arguments follow the command.\n");
+    } else if (text_equals(command, "pwd")) {
+        if (fs_pwd(working_directory, FS_PATH_MAX) == 0) {
+            console_write(working_directory);
+            console_write("\n");
+        }
+    } else if ((argument = command_argument(command, "ls")) != 0) {
+        command_ls(argument);
+    } else if ((argument = command_argument(command, "cd")) != 0) {
+        if (argument[0] == '\0') {
+            argument = "/home";
+        }
+        if (fs_chdir(argument) != 0) {
+            console_write("cd: directory not found\n");
+        }
+    } else if ((argument = command_argument(command, "mkdir")) != 0) {
+        if (argument[0] == '\0' || fs_mkdir(argument) != 0) {
+            console_write("mkdir: cannot create directory\n");
+        }
+    } else if ((argument = command_argument(command, "touch")) != 0) {
+        if (argument[0] == '\0' || fs_touch(argument) != 0) {
+            console_write("touch: cannot create file\n");
+        }
+    } else if ((argument = command_argument(command, "write")) != 0) {
+        if (split_path_text(argument, path, FS_PATH_MAX, &text) != 0) {
+            console_write("Usage: write <file> <text>\n");
+        } else {
+            fs_touch(path);
+            result = fs_write(path, text, 0u);
+            if (result != 0) {
+                console_write(result == -2 ? "write: file is full\n" : "write: failed\n");
+            }
+        }
+    } else if ((argument = command_argument(command, "append")) != 0) {
+        if (split_path_text(argument, path, FS_PATH_MAX, &text) != 0) {
+            console_write("Usage: append <file> <text>\n");
+        } else {
+            fs_touch(path);
+            result = fs_write(path, text, 1u);
+            if (result != 0) {
+                console_write(result == -2 ? "append: file is full\n" : "append: failed\n");
+            }
+        }
+    } else if ((argument = command_argument(command, "cat")) != 0) {
+        command_cat(argument);
+    } else if ((argument = command_argument(command, "open")) != 0) {
+        command_cat(argument);
+    } else if ((argument = command_argument(command, "rm")) != 0) {
+        result = argument[0] == '\0' ? -1 : fs_remove(argument);
+        if (result != 0) {
+            console_write(result == -2 ? "rm: directory is not empty\n" : "rm: path not found\n");
+        }
+    } else if ((argument = command_argument(command, "echo")) != 0) {
+        console_write(argument);
+        console_write("\n");
+    } else if (text_equals(command, "date")) {
+        command_date();
+    } else if (text_equals(command, "lspci")) {
+        command_lspci();
+    } else if (text_equals(command, "drivers")) {
+        command_drivers();
+    } else if (text_equals(command, "version")) {
+        console_write("MVH Kernel 1.0 x86_64 ELF64\n");
+    } else if (text_equals(command, "hostname")) {
+        console_write("mvhcloud\n");
+    } else if (text_equals(command, "whoami")) {
+        console_write("root\n");
     } else if (text_equals(command, "language")) {
         show_languages();
     } else if (text_equals(command, "language en") || text_equals(command, "language de") ||
@@ -356,6 +589,7 @@ void kernel_main(uint64_t memory_kib, uint64_t boot_data)
     total_memory_kib = memory_kib;
     serial_init();
     vga_init();
+    fs_init();
     console_colored("+==================================================+\n", 0x0Bu);
     console_colored("|              MVHCLOUD OS x86_64                  |\n", 0x0Fu);
     console_colored("|          Version 1.0 - MVHCLOUD.com              |\n", 0x0Fu);

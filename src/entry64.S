@@ -5,6 +5,13 @@
 _kernel64_start:
     cld
     xor %rbp, %rbp
+    mov %cr0, %rax
+    and $-5, %rax
+    or $2, %rax
+    mov %rax, %cr0
+    mov %cr4, %rax
+    or $0x600, %rax
+    mov %rax, %cr4
     mov %edi, %r8d
     mov %esi, %r9d
     lea __bss_start(%rip), %rdi

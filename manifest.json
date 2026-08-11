@@ -14,6 +14,9 @@
     "vga-text-cursor",
     "serial-uart-16550",
     "ps2-keyboard-en-us",
-    "x86-cpuid"
+    "x86-cpuid",
+    "cmos-rtc",
+    "pci-config",
+    "ramfs"
   ]
 }
