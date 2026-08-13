@@ -1,6 +1,7 @@
 #include <stdint.h>
 #include "mvh/interrupt.h"
 #include "mvh/io.h"
+#include "mvh/panic.h"
 
 typedef struct {
     uint16_t offset_low;
@@ -20,6 +21,49 @@ typedef struct {
 static idt_entry_t idt[256];
 
 extern void irq_timer_entry(void);
+extern void exception_stub_0(void);
+extern void exception_stub_1(void);
+extern void exception_stub_2(void);
+extern void exception_stub_3(void);
+extern void exception_stub_4(void);
+extern void exception_stub_5(void);
+extern void exception_stub_6(void);
+extern void exception_stub_7(void);
+extern void exception_stub_8(void);
+extern void exception_stub_9(void);
+extern void exception_stub_10(void);
+extern void exception_stub_11(void);
+extern void exception_stub_12(void);
+extern void exception_stub_13(void);
+extern void exception_stub_14(void);
+extern void exception_stub_15(void);
+extern void exception_stub_16(void);
+extern void exception_stub_17(void);
+extern void exception_stub_18(void);
+extern void exception_stub_19(void);
+extern void exception_stub_20(void);
+extern void exception_stub_21(void);
+extern void exception_stub_22(void);
+extern void exception_stub_23(void);
+extern void exception_stub_24(void);
+extern void exception_stub_25(void);
+extern void exception_stub_26(void);
+extern void exception_stub_27(void);
+extern void exception_stub_28(void);
+extern void exception_stub_29(void);
+extern void exception_stub_30(void);
+extern void exception_stub_31(void);
+
+static void (*const exception_stubs[32])(void) = {
+    exception_stub_0, exception_stub_1, exception_stub_2, exception_stub_3,
+    exception_stub_4, exception_stub_5, exception_stub_6, exception_stub_7,
+    exception_stub_8, exception_stub_9, exception_stub_10, exception_stub_11,
+    exception_stub_12, exception_stub_13, exception_stub_14, exception_stub_15,
+    exception_stub_16, exception_stub_17, exception_stub_18, exception_stub_19,
+    exception_stub_20, exception_stub_21, exception_stub_22, exception_stub_23,
+    exception_stub_24, exception_stub_25, exception_stub_26, exception_stub_27,
+    exception_stub_28, exception_stub_29, exception_stub_30, exception_stub_31
+};
 
 static void idt_set(uint8_t vector, void (*handler)(void))
 {
@@ -63,6 +107,9 @@ void interrupt_init(void)
         idt[index].offset_high = 0u;
         idt[index].reserved = 0u;
     }
+    for (index = 0u; index < 32u; index++) {
+        idt_set((uint8_t)index, exception_stubs[index]);
+    }
     idt_set(32u, irq_timer_entry);
     pointer.limit = (uint16_t)(sizeof(idt) - 1u);
     pointer.base = (uint64_t)(uintptr_t)idt;
@@ -70,6 +117,11 @@ void interrupt_init(void)
     pic_remap();
     io_out8(0x21u, 0xFEu);
     io_out8(0xA1u, 0xFFu);
+}
+
+void exception_dispatch(void *frame)
+{
+    kernel_panic_exception((const exception_frame_t *)frame);
 }
 
 void interrupt_enable(void)

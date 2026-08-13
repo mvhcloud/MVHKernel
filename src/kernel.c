@@ -1,11 +1,15 @@
 #include <stdint.h>
 #include "mvh/cpu.h"
+#include "mvh/device.h"
 #include "mvh/fs.h"
 #include "mvh/hal.h"
+#include "mvh/log.h"
 #include "mvh/memory.h"
+#include "mvh/panic.h"
 #include "mvh/pci.h"
 #include "mvh/rtc.h"
 #include "mvh/serial.h"
+#include "mvh/sync.h"
 #include "mvh/task.h"
 #include "mvh/vfs.h"
 #include "mvh/vga.h"
@@ -307,7 +311,7 @@ static void show_about(void)
     console_colored("+==================== MVHCLOUD ====================+\n", 0x0Bu);
     console_write(localized("| Product      : MVHCLOUD OS\n", "| Produkt      : MVHCLOUD OS\n",
                             "| Producto     : MVHCLOUD OS\n", "| Produit      : MVHCLOUD OS\n"));
-    console_write("| Kernel       : MVH Kernel 1.1\n");
+    console_write("| Kernel       : MVH Kernel 1.1.1\n");
     console_write(localized("| Architecture : x86_64 / ELF64\n", "| Architektur  : x86_64 / ELF64\n",
                             "| Arquitectura : x86_64 / ELF64\n", "| Architecture : x86_64 / ELF64\n"));
     console_write("| Website      : https://MVHCLOUD.com\n");
@@ -484,8 +488,10 @@ static void command_drivers(void)
     console_write("  cmos-rtc              real-time clock\n");
     console_write("  pci-config            PCI device discovery\n");
     console_write("  x86-idt-pic           interrupt controller\n");
+    console_write("  x86-exceptions        CPU exception handling\n");
     console_write("  pit-8254              system timer\n");
     console_write("  ramfs                 volatile filesystem\n");
+    console_write("  device-manager        kernel device registry\n");
 }
 
 static void feature_line(const char *name, uint32_t available, const char *description)
@@ -520,7 +526,7 @@ static void command_features(void)
     feature_line("RDRAND", ecx & (1u << 30u), "hardware random numbers");
     feature_line("NX", extended_edx & (1u << 20u), "non-executable memory pages");
     feature_line("LONG MODE", extended_edx & (1u << 29u), "64-bit execution mode");
-    console_write("\nKernel enabled: x86_64, FPU, SSE, SSE2, IDT, PIC, PIT\n");
+    console_write("\nKernel enabled: x86_64, FPU, SSE, SSE2, IDT, exceptions, PIC, PIT\n");
     console_write("Additional detected cores require SMP startup support.\n");
 }
 
@@ -569,17 +575,19 @@ static void command_meminfo(void)
 
 static void command_devices(void)
 {
-    pci_device_t devices[32];
-    uint32_t count = hal_pci_scan(devices, 32u);
-    console_write("Platform devices\n");
-    console_write("  VGA text display\n");
-    console_write("  PS/2 keyboard controller\n");
-    console_write("  UART 16550 COM1\n");
-    console_write("  CMOS real-time clock\n");
-    console_write("  Intel 8254-compatible timer\n");
-    console_write("  PCI devices detected: ");
-    console_number(count);
-    console_write("\n");
+    device_info_t devices[DEVICE_MAX];
+    uint32_t count = device_list(devices, DEVICE_MAX);
+    uint32_t index;
+    console_write("ID  TYPE        STATE   NAME\n");
+    for (index = 0u; index < count; index++) {
+        console_number(devices[index].id);
+        console_write("   ");
+        console_write(device_type_name(devices[index].type));
+        console_write("   ");
+        console_write(devices[index].online != 0u ? "ONLINE  " : "OFFLINE ");
+        console_write(devices[index].name);
+        console_write("\n");
+    }
 }
 
 static void command_free(void)
@@ -597,7 +605,9 @@ static void command_free(void)
     console_number(heap_total_bytes() / 1024u);
     console_write(" KiB  ");
     console_number(heap_used_bytes() / 1024u);
-    console_write(" KiB\n");
+    console_write(" KiB  allocations: ");
+    console_number(heap_allocation_count());
+    console_write("\n");
 }
 
 static void command_ps(void)
@@ -620,66 +630,73 @@ static void command_ps(void)
 
 static void command_heaptest(void)
 {
-    uint8_t *first = (uint8_t *)kmalloc(64u);
-    uint8_t *second = (uint8_t *)kmalloc(4096u);
-    uint32_t index;
-    if (first == 0 || second == 0) {
-        if (first != 0) {
-            kfree(first);
-        }
-        if (second != 0) {
-            kfree(second);
-        }
-        console_write("Heap self-test failed: allocation\n");
-        return;
-    }
-    for (index = 0u; index < 64u; index++) {
-        first[index] = (uint8_t)index;
-    }
-    for (index = 0u; index < 64u; index++) {
-        if (first[index] != (uint8_t)index) {
-            kfree(second);
-            kfree(first);
-            console_write("Heap self-test failed: memory verification\n");
-            return;
-        }
-    }
-    kfree(second);
-    kfree(first);
-    console_write("Heap self-test passed\n");
+    console_write(heap_self_test() == 0 ? "Heap self-test passed\n"
+                                        : "Heap self-test failed\n");
 }
 
 static void command_pagetest(void)
 {
-    pmm_stats_t before;
-    pmm_stats_t during;
-    pmm_stats_t after;
-    uint8_t *pages;
-    pmm_get_stats(&before);
-    pages = (uint8_t *)pmm_alloc_pages(3u);
-    if (pages == 0 || ((uintptr_t)pages & 4095u) != 0u) {
-        console_write("Page allocator self-test failed: allocation\n");
+    console_write(pmm_self_test() == 0 ? "Page allocator self-test passed\n"
+                                       : "Page allocator self-test failed\n");
+}
+
+static int selftest_line(const char *name, int result)
+{
+    console_write(result == 0 ? "[PASS] " : "[FAIL] ");
+    console_write(name);
+    console_write("\n");
+    return result;
+}
+
+static void command_selftest(void)
+{
+    const char *data;
+    uint16_t size;
+    uint64_t tick_before;
+    int failures = 0;
+    failures += selftest_line("physical page allocator", pmm_self_test()) != 0;
+    failures += selftest_line("kernel heap", heap_self_test()) != 0;
+    failures += selftest_line("atomics and locks", sync_self_test()) != 0;
+    failures += selftest_line("heap structure", heap_validate()) != 0;
+    failures += selftest_line("VFS root", vfs_read("/etc/version", &data, &size) == 0 &&
+                              size != 0u ? 0 : -1) != 0;
+    failures += selftest_line("device registry", device_count() >= 9u ? 0 : -1) != 0;
+    tick_before = hal_ticks();
+    hal_sleep_ms(20u);
+    failures += selftest_line("timer progress", hal_ticks() > tick_before ? 0 : -1) != 0;
+    if (failures == 0) {
+        klog_write("INFO", "kernel self-test passed");
+        console_write("All kernel self-tests passed\n");
+    } else {
+        klog_write("ERROR", "kernel self-test failed");
+        console_write("Kernel self-test failures: ");
+        console_number((uint64_t)failures);
+        console_write("\n");
+    }
+}
+
+static void command_dmesg(void)
+{
+    char output[4097];
+    if (klog_copy(output, sizeof(output)) == 0u) {
+        console_write("Kernel log is empty.\n");
         return;
     }
-    pmm_get_stats(&during);
-    pages[0] = 0x4Du;
-    pages[4095] = 0x56u;
-    pages[4096] = 0x48u;
-    pages[12287] = 0x11u;
-    if (pages[0] != 0x4Du || pages[4095] != 0x56u ||
-        pages[4096] != 0x48u || pages[12287] != 0x11u ||
-        during.used_pages != before.used_pages + 3u) {
-        pmm_free_pages(pages, 3u);
-        console_write("Page allocator self-test failed: verification\n");
-        return;
-    }
-    pmm_free_pages(pages, 3u);
-    pmm_get_stats(&after);
-    if (after.used_pages != before.used_pages || after.free_pages != before.free_pages) {
-        console_write("Page allocator self-test failed: release\n");
-        return;
-    }
-    console_write("Page allocator self-test passed\n");
+    console_write(output);
+}
+
+static void register_platform_devices(void)
+{
+    device_manager_init();
+    device_register("boot-cpu", DEVICE_CPU, 1u);
+    device_register("8259-pic", DEVICE_INTERRUPT, 1u);
+    device_register("8254-pit", DEVICE_TIMER, 1u);
+    device_register("ps2-keyboard", DEVICE_INPUT, 1u);
+    device_register("vga-text", DEVICE_DISPLAY, 1u);
+    device_register("uart-com1", DEVICE_SERIAL, 1u);
+    device_register("cmos-rtc", DEVICE_CLOCK, 1u);
+    device_register("pci-config", DEVICE_BUS, 1u);
+    device_register("ramfs-root", DEVICE_FILESYSTEM, 1u);
 }
 
 static void run_command(const char *command)
@@ -699,7 +716,8 @@ static void run_command(const char *command)
             "  help         Afficher cette liste\n  about        Afficher les informations systeme\n  statics      Ouvrir le moniteur CPU et RAM\n  language     Afficher ou changer la langue\n  clear        Effacer l'ecran\n  reboot       Redemarrer le systeme\n"));
         console_write("\nFilesystem: ls dir cd pwd mkdir touch write append cat type open rm rmdir mount df\n");
         console_write("System:     date uptime ticks sleep meminfo free devices lspci drivers features\n");
-        console_write("Kernel:     ps heaptest pagetest uname version hostname whoami\n");
+        console_write("Kernel:     ps dmesg selftest heaptest pagetest synctest faulttest\n");
+        console_write("Info:       uname version hostname whoami\n");
         console_write("Other:      echo clear cls reboot\n");
         console_write("Use '<command> help' is not required; arguments follow the command.\n");
     } else if (text_equals(command, "pwd")) {
@@ -799,6 +817,24 @@ static void run_command(const char *command)
         command_heaptest();
     } else if (text_equals(command, "pagetest")) {
         command_pagetest();
+    } else if (text_equals(command, "synctest")) {
+        console_write(sync_self_test() == 0 ? "Synchronization self-test passed\n"
+                                            : "Synchronization self-test failed\n");
+    } else if (text_equals(command, "selftest")) {
+        command_selftest();
+    } else if (text_equals(command, "dmesg")) {
+        command_dmesg();
+    } else if (text_equals(command, "faulttest")) {
+        klog_write("WARN", "deliberate breakpoint exception requested");
+        console_write("Triggering breakpoint exception.\n");
+        __asm__ volatile ("int3");
+    } else if (text_equals(command, "faulttest page")) {
+        volatile uint64_t *unmapped = (volatile uint64_t *)(uintptr_t)0x40000000u;
+        uint64_t value;
+        klog_write("WARN", "deliberate page fault requested");
+        console_write("Triggering unmapped page access.\n");
+        value = *unmapped;
+        (void)value;
     } else if (text_equals(command, "devices")) {
         command_devices();
     } else if (text_equals(command, "lspci")) {
@@ -808,9 +844,9 @@ static void run_command(const char *command)
     } else if (text_equals(command, "features")) {
         command_features();
     } else if (text_equals(command, "version")) {
-        console_write("MVH Kernel 1.1 x86_64 ELF64\n");
+        console_write("MVH Kernel 1.1.1 x86_64 ELF64\n");
     } else if (text_equals(command, "uname") || text_equals(command, "uname -a")) {
-        console_write("MVHKernel mvhcloud 1.1 x86_64\n");
+        console_write("MVHKernel mvhcloud 1.1.1 x86_64\n");
     } else if (text_equals(command, "hostname")) {
         console_write("mvhcloud\n");
     } else if (text_equals(command, "whoami")) {
@@ -846,19 +882,23 @@ void kernel_main(uint64_t memory_kib, uint64_t boot_data)
     unsigned int length = 0;
     char input;
     (void)boot_data;
+    klog_init();
     hal_init();
+    klog_write("INFO", "hardware abstraction layer initialized");
     pmm_init(memory_kib, (uintptr_t)&__kernel_end);
+    klog_write("INFO", "physical memory manager initialized");
     if (heap_init() != 0) {
-        console_colored("Kernel heap initialization failed.\n", 0x0Cu);
-        for (;;) {
-            __asm__ volatile ("hlt");
-        }
+        kernel_panic("kernel heap initialization failed");
     }
+    klog_write("INFO", "kernel heap initialized");
     vfs_init();
+    klog_write("INFO", "VFS mounted ramfs root");
     task_init(hal_ticks());
+    register_platform_devices();
+    klog_write("INFO", "device manager initialized");
     console_colored("+==================================================+\n", 0x0Bu);
     console_colored("|              MVHCLOUD OS x86_64                  |\n", 0x0Fu);
-    console_colored("|          Version 1.1 - MVHCLOUD.com              |\n", 0x0Fu);
+    console_colored("|         Version 1.1.1 - MVHCLOUD.com             |\n", 0x0Fu);
     console_colored("+==================================================+\n", 0x0Bu);
     console_write("MVH kernel ready\n");
     console_write("\nType 'help' for available commands.\n");

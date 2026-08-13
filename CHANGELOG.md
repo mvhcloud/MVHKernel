@@ -1,5 +1,18 @@
 # MVH Kernel Release Log
 
+## 1.1.1
+
+- CPU exception gates for vectors 0 through 31
+- Register-aware kernel panic output with exception name, error code, RIP and RFLAGS
+- Circular kernel log with the `dmesg` command
+- Atomic 32-bit operations, spinlocks and mutex foundations
+- Registry-based device manager with typed online state
+- Heap structure validation and allocation counting
+- Combined kernel `selftest` for memory, heap, locks, VFS, devices and timer
+- Deliberate `faulttest` command for exception-path validation
+- ABI and release compatibility metadata in the manifest
+- Version correction after the earlier 1.1 foundation upload
+
 ## 1.1
 
 - Hardware abstraction layer for platform initialization, input, timer, RTC, PCI and reboot

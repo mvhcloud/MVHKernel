@@ -14,10 +14,14 @@ void pmm_init(uint64_t memory_kib, uintptr_t kernel_end);
 void *pmm_alloc_pages(uint32_t count);
 void pmm_free_pages(void *address, uint32_t count);
 void pmm_get_stats(pmm_stats_t *stats);
+int pmm_self_test(void);
 int heap_init(void);
 void *kmalloc(uint64_t size);
 void kfree(void *address);
 uint64_t heap_total_bytes(void);
 uint64_t heap_used_bytes(void);
+uint64_t heap_allocation_count(void);
+int heap_validate(void);
+int heap_self_test(void);
 
 #endif

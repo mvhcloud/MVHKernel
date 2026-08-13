@@ -100,3 +100,31 @@ void pmm_get_stats(pmm_stats_t *stats)
     stats->free_pages = managed_pages - used_pages;
     stats->reserved_pages = reserved_pages;
 }
+
+int pmm_self_test(void)
+{
+    pmm_stats_t before;
+    pmm_stats_t during;
+    pmm_stats_t after;
+    uint8_t *pages;
+    pmm_get_stats(&before);
+    pages = (uint8_t *)pmm_alloc_pages(3u);
+    if (pages == 0 || ((uintptr_t)pages & (PAGE_SIZE - 1u)) != 0u) {
+        return -1;
+    }
+    pmm_get_stats(&during);
+    pages[0] = 0x4Du;
+    pages[PAGE_SIZE - 1u] = 0x56u;
+    pages[PAGE_SIZE] = 0x48u;
+    pages[PAGE_SIZE * 3u - 1u] = 0x11u;
+    if (pages[0] != 0x4Du || pages[PAGE_SIZE - 1u] != 0x56u ||
+        pages[PAGE_SIZE] != 0x48u || pages[PAGE_SIZE * 3u - 1u] != 0x11u ||
+        during.used_pages != before.used_pages + 3u) {
+        pmm_free_pages(pages, 3u);
+        return -1;
+    }
+    pmm_free_pages(pages, 3u);
+    pmm_get_stats(&after);
+    return after.used_pages == before.used_pages &&
+           after.free_pages == before.free_pages ? 0 : -1;
+}
