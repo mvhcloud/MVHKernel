@@ -23,6 +23,8 @@ typedef struct {
     uint8_t microcode_available;
     uint8_t temperature_available;
     int32_t temperature_celsius;
+    int32_t temperature_millicelsius;
+    const char *temperature_source;
 } cpu_info_t;
 
 typedef struct {

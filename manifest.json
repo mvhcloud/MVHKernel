@@ -22,6 +22,8 @@
     "x86-cpuid",
     "x86-fpu-xsave",
     "x86-msr-rng",
+    "intel-dts-temperature",
+    "amd-northbridge-smn-temperature",
     "x86-paging",
     "cmos-rtc",
     "pci-config",
@@ -44,7 +46,9 @@
     "kernel-self-test",
     "cpu-hardware-diagnostics",
     "interrupt-statistics",
-    "heap-hardening"
+    "heap-hardening",
+    "panic-error-decoder",
+    "panic-stack-trace"
   ],
   "memory": {
     "page_size": 4096,
@@ -64,7 +68,7 @@
     "no-userspace-elf-loader",
     "legacy-pic-active-apic-detection-only",
     "no-acpi-boot-table-handoff",
-    "cpu-temperature-requires-platform-sensor-driver",
+    "cpu-temperature-limited-to-supported-intel-dts-and-amd-families",
     "no-compiler-stack-protector",
     "no-network-usb-storage-stack"
   ],

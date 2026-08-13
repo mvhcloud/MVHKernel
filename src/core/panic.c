@@ -39,6 +39,74 @@ static void panic_hex(uint64_t value)
     }
 }
 
+static void panic_hex8(uint8_t value)
+{
+    static const char digits[] = "0123456789ABCDEF";
+    panic_put(digits[value >> 4u]);
+    panic_put(digits[value & 0x0Fu]);
+}
+
+static void panic_bit(const char *name, uint64_t value, uint32_t bit)
+{
+    panic_write(name);
+    panic_write((value & (1ull << bit)) != 0u ? "=1 " : "=0 ");
+}
+
+static void panic_decode_error(const exception_frame_t *frame)
+{
+    uint64_t error = frame->error_code;
+    if (frame->vector == 14u) {
+        panic_write("\nPage fault: ");
+        panic_write((error & 1u) != 0u ? "protection violation, " : "non-present page, ");
+        panic_write((error & 2u) != 0u ? "write, " : "read, ");
+        panic_write((error & 4u) != 0u ? "user, " : "supervisor, ");
+        panic_write((error & 8u) != 0u ? "reserved-bit, " : "reserved-bits-ok, ");
+        panic_write((error & 16u) != 0u ? "instruction fetch" : "data access");
+        panic_write("\nPF flags: ");
+        panic_bit("P", error, 0u); panic_bit("W", error, 1u);
+        panic_bit("U", error, 2u); panic_bit("R", error, 3u);
+        panic_bit("I", error, 4u); panic_bit("PK", error, 5u);
+        panic_bit("SS", error, 6u); panic_bit("SGX", error, 15u);
+    } else if (frame->vector == 10u || frame->vector == 11u ||
+               frame->vector == 12u || frame->vector == 13u) {
+        panic_write("\nSelector error: ");
+        panic_bit("EXT", error, 0u); panic_bit("IDT", error, 1u);
+        panic_bit("TI", error, 2u);
+        panic_write("INDEX=");
+        panic_hex(error >> 3u);
+    } else if (frame->vector == 21u) {
+        panic_write("\nControl-protection error: ");
+        panic_hex(error);
+    } else if (frame->vector == 8u || frame->vector == 17u) {
+        panic_write("\nArchitectural error code is zero for this exception.");
+    }
+}
+
+static void panic_stack_trace(const exception_frame_t *frame)
+{
+    const uint64_t *base = (const uint64_t *)(uintptr_t)frame->rbp;
+    uint64_t previous = 0u;
+    uint32_t depth;
+    panic_write("\nStack trace:\n  #0 ");
+    panic_hex(frame->rip);
+    for (depth = 1u; depth < 12u; depth++) {
+        uintptr_t address = (uintptr_t)base;
+        uint64_t next;
+        uint64_t return_address;
+        if (address < 0x1000u || address >= 0x40000000u ||
+            (address & (sizeof(uint64_t) - 1u)) != 0u || address <= previous) break;
+        next = base[0];
+        return_address = base[1];
+        if (return_address < 0x200000u || return_address >= 0x40000000u) break;
+        panic_write("\n  #");
+        panic_put((char)('0' + depth % 10u));
+        panic_write(" ");
+        panic_hex(return_address);
+        previous = address;
+        base = (const uint64_t *)(uintptr_t)next;
+    }
+}
+
 static void panic_halt(void) __attribute__((noreturn));
 
 static void panic_halt(void)
@@ -56,6 +124,7 @@ void kernel_panic(const char *message)
     vga_set_color(0x4Fu);
     panic_write("\n================ MVH KERNEL PANIC ================\n");
     vga_set_color(0x0Fu);
+    panic_write("Panic code: MVH-KERNEL-0001\n");
     panic_write(message);
     panic_write("\nSystem halted safely.\n");
     panic_halt();
@@ -82,10 +151,13 @@ void kernel_panic_exception(const exception_frame_t *frame)
     vga_set_color(0x0Fu);
     panic_write("CPU exception: ");
     panic_write(name);
+    panic_write("\nPanic code: MVH-EX-");
+    panic_hex8((uint8_t)frame->vector);
     panic_write("\nVector: ");
     panic_hex(frame->vector);
     panic_write("  Error: ");
     panic_hex(frame->error_code);
+    panic_decode_error(frame);
     panic_write("\nRIP: ");
     panic_hex(frame->rip);
     panic_write("  RFLAGS: ");
@@ -116,6 +188,7 @@ void kernel_panic_exception(const exception_frame_t *frame)
     panic_write("  R13: "); panic_hex(frame->r13);
     panic_write("\nR14: "); panic_hex(frame->r14);
     panic_write("  R15: "); panic_hex(frame->r15);
+    panic_stack_trace(frame);
     panic_write("\nSystem halted safely.\n");
     panic_halt();
 }

@@ -12,7 +12,9 @@ The 64-bit kernel is written to `build/kernel.elf`. GNU Make, GCC with x86_64 su
 
 Version 1.1.2 adds 4 KiB page mapping, kernel page protections, a null-page guard, CPU security initialization, extended CPU/cache/SIMD diagnostics, hardware RNG access, interrupt statistics, larger structured logs, heap canaries, free poisoning and allocator statistics.
 
-CPU temperature is reported only when a safe platform sensor backend is available. QEMU normally exposes no usable thermal sensor, so the shell reports the value as unavailable instead of inventing a temperature.
+CPU temperature supports Intel Digital Thermal Sensor MSRs, AMD Family 10h-16h northbridge Tctl and AMD Family 17h-1Ah SMN Tctl. Readings are range-validated. QEMU normally exposes no usable thermal sensor, so the shell reports the value as unavailable instead of inventing a temperature.
+
+Exception crashes display a stable panic code, decoded hardware error-code flags, control registers, general registers and a bounded frame-pointer stack trace on VGA and serial output.
 
 Available commands include `help`, `about`, `statics`, `ls`, `dir`, `cd`, `pwd`, `mkdir`, `touch`, `write`, `append`, `cat`, `type`, `open`, `rm`, `rmdir`, `mount`, `df`, `echo`, `date`, `uptime`, `ticks`, `sleep`, `meminfo`, `free`, `heaptest`, `pagetest`, `synctest`, `selftest`, `dmesg`, `faulttest`, `ps`, `devices`, `lspci`, `drivers`, `features`, `uname`, `version`, `hostname`, `whoami`, `language`, `clear`, `cls` and `reboot`.
 

@@ -314,8 +314,15 @@ static void show_cpu(void)
     }
     console_write("\n| Temperature  : ");
     if (info.temperature_available != 0u) {
-        console_number((uint64_t)info.temperature_celsius);
-        console_write(" C");
+        if (info.temperature_millicelsius < 0) console_put('-');
+        console_number((uint64_t)(info.temperature_millicelsius < 0 ?
+                       -info.temperature_millicelsius : info.temperature_millicelsius) / 1000u);
+        console_put('.');
+        console_number((uint64_t)(info.temperature_millicelsius < 0 ?
+                       -info.temperature_millicelsius : info.temperature_millicelsius) % 1000u / 100u);
+        console_write(" C (");
+        console_write(info.temperature_source);
+        console_put(')');
     } else {
         console_write("not available from this CPU/platform");
     }
@@ -750,6 +757,20 @@ static void command_pagetable(void)
     }
 }
 
+static void command_paniccodes(void)
+{
+    console_write("MVH panic code format\n");
+    console_write("  MVH-KERNEL-0001  explicit kernel panic\n");
+    console_write("  MVH-EX-00        divide error\n");
+    console_write("  MVH-EX-06        invalid opcode\n");
+    console_write("  MVH-EX-08        double fault\n");
+    console_write("  MVH-EX-0D        general protection fault\n");
+    console_write("  MVH-EX-0E        page fault\n");
+    console_write("  MVH-EX-12        machine check\n");
+    console_write("  MVH-EX-15        control protection\n");
+    console_write("Crash output includes vector, decoded error flags, CR0-CR4, registers and stack trace.\n");
+}
+
 static void command_ps(void)
 {
     task_info_t tasks[TASK_MAX];
@@ -859,7 +880,7 @@ static void run_command(const char *command)
         console_write("\nFilesystem: ls dir cd pwd mkdir touch write append cat type open rm rmdir mount df\n");
         console_write("System:     date uptime ticks sleep meminfo free devices lspci drivers features\n");
         console_write("Kernel:     ps dmesg selftest heaptest pagetest synctest faulttest\n");
-        console_write("Debug:      cpuinfo heapinfo irqstat pagetable\n");
+        console_write("Debug:      cpuinfo heapinfo irqstat pagetable paniccodes\n");
         console_write("Info:       uname version hostname whoami\n");
         console_write("Other:      echo clear cls reboot\n");
         console_write("Use '<command> help' is not required; arguments follow the command.\n");
@@ -954,6 +975,8 @@ static void run_command(const char *command)
         command_irqstat();
     } else if (text_equals(command, "pagetable")) {
         command_pagetable();
+    } else if (text_equals(command, "paniccodes")) {
+        command_paniccodes();
     } else if (text_equals(command, "mount")) {
         console_write("root on / type ");
         console_write(vfs_root_type());

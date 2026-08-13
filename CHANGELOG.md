@@ -13,6 +13,9 @@
 - Added exception register/control-register dumps and per-vector interrupt counters
 - Increased the structured timestamped kernel log ring to 16 KiB
 - Added `cpuinfo`, `heapinfo`, `irqstat` and `pagetable` shell commands
+- Added Intel DTS and AMD northbridge/SMN temperature backends with range validation
+- Added stable panic codes, decoded page-fault and selector-error flags and frame-pointer stack traces
+- Added the `paniccodes` shell command
 - Kept ACPI, HPET, IOAPIC and Local APIC activation disabled until verified firmware-table handoff is available
 
 ## 1.1.1

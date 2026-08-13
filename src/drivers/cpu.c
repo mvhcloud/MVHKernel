@@ -1,11 +1,13 @@
 #include <stdint.h>
 #include "mvh/cpu.h"
+#include "mvh/pci.h"
 #include "mvh/timer.h"
 
 static cpu_info_t detected_info;
 static cpu_capabilities_t detected_capabilities;
 static cpu_security_state_t security_state;
 static uint8_t intel_digital_thermal_sensor;
+static uint8_t amd_temperature_sensor;
 
 static uint8_t text_equal(const char *left, const char *right)
 {
@@ -115,6 +117,38 @@ static void detect_cache(void)
         detected_info.l2_kib = ecx >> 16u;
         detected_info.l3_kib = ((edx >> 18u) & 0x3FFFu) * 512u;
     }
+}
+
+static uint8_t temperature_valid(int32_t millicelsius)
+{
+    return (uint8_t)(millicelsius >= -40000 && millicelsius <= 150000);
+}
+
+static uint8_t read_amd_legacy_temperature(int32_t *millicelsius)
+{
+    uint32_t identity = pci_config_read32(0u, 0x18u, 3u, 0u);
+    uint32_t value;
+    int32_t temperature;
+    if ((identity & 0xFFFFu) != 0x1022u) return 0u;
+    value = pci_config_read32(0u, 0x18u, 3u, 0xA4u);
+    temperature = (int32_t)((value >> 21u) & 0x7FFu) * 125;
+    if (temperature_valid(temperature) == 0u) return 0u;
+    *millicelsius = temperature;
+    return 1u;
+}
+
+static uint8_t read_amd_smn_temperature(int32_t *millicelsius)
+{
+    uint32_t identity = pci_config_read32(0u, 0u, 0u, 0u);
+    uint32_t value;
+    int32_t temperature;
+    if ((identity & 0xFFFFu) != 0x1022u) return 0u;
+    pci_config_write32(0u, 0u, 0u, 0x60u, 0x00059800u);
+    value = pci_config_read32(0u, 0u, 0u, 0x64u);
+    temperature = (int32_t)((value >> 21u) & 0x7FFu) * 125;
+    if (temperature_valid(temperature) == 0u) return 0u;
+    *millicelsius = temperature;
+    return 1u;
 }
 
 void cpu_init(void)
@@ -241,6 +275,7 @@ void cpu_init(void)
     detected_info.microcode_available = 0u;
     detected_info.temperature_available = 0u;
     intel_digital_thermal_sensor = 0u;
+    amd_temperature_sensor = 0u;
     if (text_equal(vendor, "GenuineIntel") != 0u) {
         if (max_leaf >= 6u) {
             cpuid(6u, 0u, &eax, &ebx, &ecx, &edx);
@@ -254,6 +289,12 @@ void cpu_init(void)
                 detected_info.microcode_available = 1u;
             }
         }
+    } else if (text_equal(vendor, "AuthenticAMD") != 0u) {
+        if (detected_info.family >= 0x10u && detected_info.family <= 0x16u) {
+            amd_temperature_sensor = 1u;
+        } else if (detected_info.family >= 0x17u && detected_info.family <= 0x1Au) {
+            amd_temperature_sensor = 2u;
+        }
     }
 }
 
@@ -261,13 +302,32 @@ void cpu_get_info(cpu_info_t *info)
 {
     uint64_t therm_status;
     uint64_t temperature_target;
+    int32_t millicelsius;
+    detected_info.temperature_available = 0u;
+    detected_info.temperature_source = "unavailable";
     if (intel_digital_thermal_sensor != 0u &&
         cpu_rdmsr(0x19Cu, &therm_status) != 0u && (therm_status & (1ull << 31u)) != 0u &&
         cpu_rdmsr(0x1A2u, &temperature_target) != 0u) {
         detected_info.temperature_celsius =
             (int32_t)((temperature_target >> 16u) & 0xFFu) -
             (int32_t)((therm_status >> 16u) & 0x7Fu);
+        detected_info.temperature_millicelsius = detected_info.temperature_celsius * 1000;
+        if (temperature_valid(detected_info.temperature_millicelsius) != 0u) {
+            detected_info.temperature_available = 1u;
+            detected_info.temperature_source = "Intel DTS/MSR";
+        }
+    } else if (amd_temperature_sensor == 1u &&
+               read_amd_legacy_temperature(&millicelsius) != 0u) {
+        detected_info.temperature_millicelsius = millicelsius;
+        detected_info.temperature_celsius = millicelsius / 1000;
         detected_info.temperature_available = 1u;
+        detected_info.temperature_source = "AMD northbridge Tctl";
+    } else if (amd_temperature_sensor == 2u &&
+               read_amd_smn_temperature(&millicelsius) != 0u) {
+        detected_info.temperature_millicelsius = millicelsius;
+        detected_info.temperature_celsius = millicelsius / 1000;
+        detected_info.temperature_available = 1u;
+        detected_info.temperature_source = "AMD SMN Tctl";
     }
     *info = detected_info;
 }

@@ -2,13 +2,23 @@
 #include "mvh/io.h"
 #include "mvh/pci.h"
 
-static uint32_t pci_read32(uint8_t bus, uint8_t slot, uint8_t function, uint8_t offset)
+uint32_t pci_config_read32(uint8_t bus, uint8_t slot, uint8_t function, uint8_t offset)
 {
     uint32_t address = 0x80000000u | ((uint32_t)bus << 16u) |
                        ((uint32_t)slot << 11u) | ((uint32_t)function << 8u) |
                        (offset & 0xFCu);
     io_out32(0xCF8u, address);
     return io_in32(0xCFCu);
+}
+
+void pci_config_write32(uint8_t bus, uint8_t slot, uint8_t function, uint8_t offset,
+                        uint32_t value)
+{
+    uint32_t address = 0x80000000u | ((uint32_t)bus << 16u) |
+                       ((uint32_t)slot << 11u) | ((uint32_t)function << 8u) |
+                       (offset & 0xFCu);
+    io_out32(0xCF8u, address);
+    io_out32(0xCFCu, value);
 }
 
 uint32_t pci_scan(pci_device_t *devices, uint32_t capacity)
@@ -22,14 +32,14 @@ uint32_t pci_scan(pci_device_t *devices, uint32_t capacity)
     uint8_t functions;
     for (bus = 0; ; bus++) {
         for (slot = 0; slot < 32u; slot++) {
-            value = pci_read32(bus, slot, 0u, 0u);
+            value = pci_config_read32(bus, slot, 0u, 0u);
             vendor = (uint16_t)(value & 0xFFFFu);
             if (vendor == 0xFFFFu) {
                 continue;
             }
-            functions = (pci_read32(bus, slot, 0u, 0x0Cu) & 0x00800000u) != 0u ? 8u : 1u;
+            functions = (pci_config_read32(bus, slot, 0u, 0x0Cu) & 0x00800000u) != 0u ? 8u : 1u;
             for (function = 0; function < functions; function++) {
-                value = pci_read32(bus, slot, function, 0u);
+                value = pci_config_read32(bus, slot, function, 0u);
                 vendor = (uint16_t)(value & 0xFFFFu);
                 if (vendor == 0xFFFFu) {
                     continue;
@@ -40,7 +50,7 @@ uint32_t pci_scan(pci_device_t *devices, uint32_t capacity)
                     devices[count].function = function;
                     devices[count].vendor = vendor;
                     devices[count].device = (uint16_t)(value >> 16u);
-                    value = pci_read32(bus, slot, function, 0x08u);
+                    value = pci_config_read32(bus, slot, function, 0x08u);
                     devices[count].class_code = (uint8_t)(value >> 24u);
                     devices[count].subclass = (uint8_t)(value >> 16u);
                 }
