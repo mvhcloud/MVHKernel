@@ -1,10 +1,15 @@
 {
   "name": "MVH Kernel",
-  "version": "1.0",
+  "version": "1.1",
   "website": "https://MVHCLOUD.com",
   "architecture": "x86_64",
   "format": "ELF64",
   "entry": "_kernel64_start",
+  "requires": [
+    "x86_64-long-mode",
+    "identity-mapped-first-gib",
+    "boot-memory-size-kib"
+  ],
   "license": "MIT",
   "release_log": "CHANGELOG.md",
   "default_language": "en",
@@ -17,6 +22,30 @@
     "x86-cpuid",
     "cmos-rtc",
     "pci-config",
-    "ramfs"
+    "x86-idt-pic",
+    "pit-8254",
+    "ramfs",
+    "vfs-root"
+  ],
+  "kernel_layers": [
+    "hal",
+    "physical-page-allocator",
+    "kernel-heap",
+    "vfs",
+    "task-registry"
+  ],
+  "memory": {
+    "page_size": 4096,
+    "identity_map_limit_mib": 1024,
+    "heap_size_mib": 1,
+    "nx_capability_detection": true,
+    "nx_enforcement": false,
+    "user_kernel_separation": false
+  },
+  "limitations": [
+    "single-running-boot-processor",
+    "kernel-mode-only",
+    "volatile-root-filesystem",
+    "no-userspace-elf-loader"
   ]
 }

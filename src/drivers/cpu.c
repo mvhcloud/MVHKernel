@@ -83,3 +83,17 @@ uint32_t cpu_feature_edx(void)
     cpuid(1u, 0u, &eax, &ebx, &ecx, &edx);
     return edx;
 }
+
+uint32_t cpu_extended_feature_edx(void)
+{
+    uint32_t eax;
+    uint32_t ebx;
+    uint32_t ecx;
+    uint32_t edx;
+    cpuid(0x80000000u, 0u, &eax, &ebx, &ecx, &edx);
+    if (eax < 0x80000001u) {
+        return 0u;
+    }
+    cpuid(0x80000001u, 0u, &eax, &ebx, &ecx, &edx);
+    return edx;
+}

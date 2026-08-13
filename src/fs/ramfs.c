@@ -178,12 +178,18 @@ void fs_init(void)
     nodes[0].name[0] = '\0';
     current_directory = 0u;
     fs_mkdir("/home");
+    fs_mkdir("/bin");
+    fs_mkdir("/dev");
     fs_mkdir("/etc");
+    fs_mkdir("/kernel");
     fs_mkdir("/tmp");
+    fs_mkdir("/var");
     fs_touch("/home/welcome.txt");
-    fs_write("/home/welcome.txt", "Welcome to MVH Kernel 1.0\n", 0u);
+    fs_write("/home/welcome.txt", "Welcome to MVH Kernel 1.1\n", 0u);
     fs_touch("/etc/version");
-    fs_write("/etc/version", "1.0\n", 0u);
+    fs_write("/etc/version", "1.1\n", 0u);
+    fs_touch("/kernel/release");
+    fs_write("/kernel/release", "MVHKernel 1.1 x86_64\n", 0u);
 }
 
 int fs_chdir(const char *path)

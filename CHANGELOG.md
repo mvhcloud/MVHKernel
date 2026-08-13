@@ -1,5 +1,19 @@
 # MVH Kernel Release Log
 
+## 1.1
+
+- Hardware abstraction layer for platform initialization, input, timer, RTC, PCI and reboot
+- x86_64 IDT and remapped 8259 PIC interrupt foundation
+- Intel 8254-compatible PIT system timer at 100 Hz
+- Physical 4 KiB page allocator limited to mapped and reported memory
+- One MiB coalescing kernel heap with `kmalloc` and `kfree`
+- Virtual filesystem boundary with RAMFS mounted as the root filesystem
+- Kernel task registry with PID, priority and execution state metadata
+- Accurate CPU execution-state display without simulated usage bars
+- Detailed `features` command for CPUID capabilities and enabled kernel support
+- Commands for memory, heap validation, tasks and mounted filesystems
+- Shell aliases: `dir`, `type`, `rmdir` and `cls`
+
 ## 1.0
 
 - x86_64 ELF64 kernel entry
