@@ -65,9 +65,15 @@ void kernel_panic_exception(const exception_frame_t *frame)
 {
     const char *name = frame->vector < 32u ? exception_names[frame->vector] : "Unknown Exception";
     uint64_t fault_address = 0u;
+    uint64_t cr0;
+    uint64_t cr3;
+    uint64_t cr4;
     if (frame->vector == 14u) {
         __asm__ volatile ("mov %%cr2, %0" : "=r"(fault_address));
     }
+    __asm__ volatile ("mov %%cr0, %0" : "=r"(cr0));
+    __asm__ volatile ("mov %%cr3, %0" : "=r"(cr3));
+    __asm__ volatile ("mov %%cr4, %0" : "=r"(cr4));
     interrupt_disable();
     klog_write("PANIC", name);
     vga_cursor_disable();
@@ -88,6 +94,28 @@ void kernel_panic_exception(const exception_frame_t *frame)
         panic_write("\nCR2: ");
         panic_hex(fault_address);
     }
+    panic_write("\nCR0: ");
+    panic_hex(cr0);
+    panic_write("  CR3: ");
+    panic_hex(cr3);
+    panic_write("\nCR4: ");
+    panic_hex(cr4);
+    panic_write("\nRAX: "); panic_hex(frame->rax);
+    panic_write("  RBX: "); panic_hex(frame->rbx);
+    panic_write("\nRCX: "); panic_hex(frame->rcx);
+    panic_write("  RDX: "); panic_hex(frame->rdx);
+    panic_write("\nRSI: "); panic_hex(frame->rsi);
+    panic_write("  RDI: "); panic_hex(frame->rdi);
+    panic_write("\nRBP: "); panic_hex(frame->rbp);
+    panic_write("  RSP*: "); panic_hex((uint64_t)(uintptr_t)frame);
+    panic_write("\nR8 : "); panic_hex(frame->r8);
+    panic_write("  R9 : "); panic_hex(frame->r9);
+    panic_write("\nR10: "); panic_hex(frame->r10);
+    panic_write("  R11: "); panic_hex(frame->r11);
+    panic_write("\nR12: "); panic_hex(frame->r12);
+    panic_write("  R13: "); panic_hex(frame->r13);
+    panic_write("\nR14: "); panic_hex(frame->r14);
+    panic_write("  R15: "); panic_hex(frame->r15);
     panic_write("\nSystem halted safely.\n");
     panic_halt();
 }

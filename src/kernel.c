@@ -3,6 +3,7 @@
 #include "mvh/device.h"
 #include "mvh/fs.h"
 #include "mvh/hal.h"
+#include "mvh/interrupt.h"
 #include "mvh/log.h"
 #include "mvh/memory.h"
 #include "mvh/panic.h"
@@ -118,6 +119,16 @@ static void console_hex16(uint16_t value)
     console_put(digits[(value >> 8u) & 0x0Fu]);
     console_put(digits[(value >> 4u) & 0x0Fu]);
     console_put(digits[value & 0x0Fu]);
+}
+
+static void console_hex64(uint64_t value)
+{
+    static const char digits[] = "0123456789ABCDEF";
+    int shift;
+    console_write("0x");
+    for (shift = 60; shift >= 0; shift -= 4) {
+        console_put(digits[(value >> (uint32_t)shift) & 0x0Fu]);
+    }
 }
 
 static void console_two_digits(uint8_t value)
@@ -267,9 +278,13 @@ static void show_cpu(void)
     uint32_t edx = cpu_feature_edx();
     uint32_t logical_cpus;
     uint32_t core;
+    cpu_info_t info;
+    cpu_capabilities_t capabilities;
     cpu_vendor(vendor);
     cpu_brand(brand);
     logical_cpus = cpu_logical_count();
+    cpu_get_info(&info);
+    cpu_get_capabilities(&capabilities);
     console_colored("+---------------------- CPU ----------------------+\n", 0x0Eu);
     console_write(localized("| Architecture : x86_64\n| Vendor       : ",
                             "| Architektur  : x86_64\n| Hersteller   : ",
@@ -282,6 +297,37 @@ static void show_cpu(void)
     console_write(localized("\n| Logical CPUs : ", "\n| Logische CPUs: ",
                             "\n| CPUs logicas : ", "\n| CPUs logiques: "));
     console_number(logical_cpus);
+    console_write("\n| APIC ID      : ");
+    console_number(info.apic_id);
+    console_write("\n| Family/Model : ");
+    console_number(info.family);
+    console_write("/");
+    console_number(info.model);
+    console_write(" stepping ");
+    console_number(info.stepping);
+    console_write("\n| Local APIC   : ");
+    if (info.local_apic_enabled != 0u) {
+        console_write(info.x2apic_enabled != 0u ? "x2APIC enabled at " : "xAPIC enabled at ");
+        console_hex64(info.local_apic_base);
+    } else {
+        console_write(capabilities.apic != 0u ? "detected, disabled" : "not available");
+    }
+    console_write("\n| Temperature  : ");
+    if (info.temperature_available != 0u) {
+        console_number((uint64_t)info.temperature_celsius);
+        console_write(" C");
+    } else {
+        console_write("not available from this CPU/platform");
+    }
+    console_write("\n| Cache        : L1D ");
+    console_number(info.l1_data_kib);
+    console_write(" KiB, L1I ");
+    console_number(info.l1_instruction_kib);
+    console_write(" KiB, L2 ");
+    console_number(info.l2_kib);
+    console_write(" KiB, L3 ");
+    console_number(info.l3_kib);
+    console_write(" KiB");
     console_write(localized("\n| CPU features : ", "\n| CPU-Funktionen: ",
                             "\n| Funciones CPU: ", "\n| Fonctions CPU: "));
     if ((edx & (1u << 25u)) != 0u) {
@@ -291,8 +337,10 @@ static void show_cpu(void)
         console_write("SSE2 ");
     }
     if ((ecx & (1u << 28u)) != 0u) {
-        console_write("AVX-HW ");
+        console_write("AVX ");
     }
+    if (capabilities.avx2 != 0u) console_write("AVX2 ");
+    if (capabilities.avx512f != 0u) console_write("AVX-512F ");
     console_write("\n| Core status  : state, not CPU usage\n|\n");
     if (logical_cpus > 16u) {
         logical_cpus = 16u;
@@ -311,7 +359,7 @@ static void show_about(void)
     console_colored("+==================== MVHCLOUD ====================+\n", 0x0Bu);
     console_write(localized("| Product      : MVHCLOUD OS\n", "| Produkt      : MVHCLOUD OS\n",
                             "| Producto     : MVHCLOUD OS\n", "| Produit      : MVHCLOUD OS\n"));
-    console_write("| Kernel       : MVH Kernel 1.1.1\n");
+    console_write("| Kernel       : MVH Kernel 1.1.2\n");
     console_write(localized("| Architecture : x86_64 / ELF64\n", "| Architektur  : x86_64 / ELF64\n",
                             "| Arquitectura : x86_64 / ELF64\n", "| Architecture : x86_64 / ELF64\n"));
     console_write("| Website      : https://MVHCLOUD.com\n");
@@ -509,6 +557,10 @@ static void command_features(void)
     uint32_t ecx = cpu_feature_ecx();
     uint32_t edx = cpu_feature_edx();
     uint32_t extended_edx = cpu_extended_feature_edx();
+    cpu_capabilities_t capabilities;
+    cpu_security_state_t security;
+    cpu_get_capabilities(&capabilities);
+    cpu_get_security_state(&security);
     console_colored("CPU hardware features\n", 0x0Eu);
     feature_line("FPU", edx & (1u << 0u), "floating-point calculations");
     feature_line("TSC", edx & (1u << 4u), "CPU timestamp counter");
@@ -523,10 +575,22 @@ static void command_features(void)
     feature_line("SSE4.2", ecx & (1u << 20u), "CRC and string instructions");
     feature_line("AES", ecx & (1u << 25u), "AES acceleration");
     feature_line("AVX", ecx & (1u << 28u), "256-bit vector hardware");
+    feature_line("AVX2", capabilities.avx2, "second-generation 256-bit vectors");
+    feature_line("AVX-512F", capabilities.avx512f, "512-bit vector foundation");
+    feature_line("XSAVE", capabilities.xsave, "extended CPU state save/restore");
     feature_line("RDRAND", ecx & (1u << 30u), "hardware random numbers");
+    feature_line("RDSEED", capabilities.rdseed, "hardware entropy seed");
+    feature_line("x2APIC", capabilities.x2apic, "extended local APIC mode");
+    feature_line("PAT", capabilities.pat, "page attribute table");
+    feature_line("MTRR", capabilities.mtrr, "memory type range registers");
     feature_line("NX", extended_edx & (1u << 20u), "non-executable memory pages");
     feature_line("LONG MODE", extended_edx & (1u << 29u), "64-bit execution mode");
-    console_write("\nKernel enabled: x86_64, FPU, SSE, SSE2, IDT, exceptions, PIC, PIT\n");
+    console_write("\nKernel protection: WP ");
+    console_write(security.write_protect != 0u ? "on" : "off");
+    console_write(", NX "); console_write(security.nx != 0u ? "on" : "off");
+    console_write(", SMEP "); console_write(security.smep != 0u ? "on" : "off");
+    console_write(", SMAP "); console_write(security.smap != 0u ? "on" : "off");
+    console_write(", UMIP "); console_write(security.umip != 0u ? "on\n" : "off\n");
     console_write("Additional detected cores require SMP startup support.\n");
 }
 
@@ -571,6 +635,12 @@ static void command_meminfo(void)
     console_write(" KiB\nHeapUsed:     ");
     console_number(heap_used_bytes() / 1024u);
     console_write(" KiB\n");
+    console_write("PageAlloc:    "); console_number(stats.allocation_requests);
+    console_write("\nPageFree:     "); console_number(stats.free_requests);
+    console_write("\nPageFailures: "); console_number(stats.failed_allocations);
+    console_write("\nPagePeak:     "); console_number(stats.peak_used_pages);
+    console_write(" pages\nMappedPages:  "); console_number(vmm_mapped_pages());
+    console_write("\n");
 }
 
 static void command_devices(void)
@@ -608,6 +678,76 @@ static void command_free(void)
     console_write(" KiB  allocations: ");
     console_number(heap_allocation_count());
     console_write("\n");
+}
+
+static void command_heapinfo(void)
+{
+    heap_stats_t stats;
+    heap_get_stats(&stats);
+    console_write("Heap total:          "); console_number(stats.total_bytes); console_write(" bytes\n");
+    console_write("Heap used:           "); console_number(stats.used_bytes); console_write(" bytes\n");
+    console_write("Heap free payload:   "); console_number(stats.free_bytes); console_write(" bytes\n");
+    console_write("Largest free block:  "); console_number(stats.largest_free_block); console_write(" bytes\n");
+    console_write("Blocks/free blocks:  "); console_number(stats.blocks); console_write("/");
+    console_number(stats.free_blocks); console_write("\nAllocations active:  ");
+    console_number(stats.allocations); console_write("\nAllocation failures: ");
+    console_number(stats.allocation_failures); console_write("\nInvalid frees:       ");
+    console_number(stats.invalid_frees); console_write("\nIntegrity:           ");
+    console_write(heap_validate() == 0 ? "valid\n" : "CORRUPTED\n");
+}
+
+static void command_cpuinfo(void)
+{
+    uint64_t random;
+    cpu_info_t info;
+    cpu_capabilities_t capabilities;
+    cpu_get_info(&info);
+    cpu_get_capabilities(&capabilities);
+    show_cpu();
+    console_write("TSC:          "); console_hex64(cpu_read_tsc());
+    console_write("\nTSC estimate: "); console_number(info.tsc_hz); console_write(" Hz\n");
+    console_write("XSAVE area:   "); console_number(info.xsave_bytes); console_write(" bytes\n");
+    console_write("Microcode:    ");
+    if (info.microcode_available != 0u) console_hex64(info.microcode);
+    else console_write("not exposed safely by this platform");
+    console_write("\nHardware RNG: ");
+    if (capabilities.rdrand != 0u && cpu_random64(&random) != 0u) console_hex64(random);
+    else console_write("not available");
+    console_write("\n");
+}
+
+static void command_irqstat(void)
+{
+    uint64_t total;
+    uint64_t timer;
+    uint64_t spurious;
+    interrupt_disable();
+    total = interrupt_total();
+    timer = interrupt_count(32u);
+    spurious = interrupt_spurious_count();
+    interrupt_enable();
+    console_write("Interrupt total:    "); console_number(total);
+    console_write("\nTimer IRQ0/vector32: "); console_number(timer);
+    console_write("\nSpurious IRQs:       "); console_number(spurious);
+    console_write("\n");
+}
+
+static void command_pagetable(void)
+{
+    uintptr_t physical;
+    uint64_t flags;
+    uintptr_t addresses[4] = {0u, 0x1000u, (uintptr_t)&__kernel_end,
+                              ((uintptr_t)&__kernel_end + 0xFFFu) & ~0xFFFull};
+    uint32_t index;
+    for (index = 0u; index < 4u; index++) {
+        console_write("VA "); console_hex64(addresses[index]); console_write(": ");
+        if (vmm_query_page(addresses[index], &physical, &flags) != 0) {
+            console_write("unmapped\n");
+        } else {
+            console_write("PA "); console_hex64(physical); console_write(" flags ");
+            console_hex64(flags); console_write("\n");
+        }
+    }
 }
 
 static void command_ps(void)
@@ -658,6 +798,8 @@ static void command_selftest(void)
     failures += selftest_line("kernel heap", heap_self_test()) != 0;
     failures += selftest_line("atomics and locks", sync_self_test()) != 0;
     failures += selftest_line("heap structure", heap_validate()) != 0;
+    failures += selftest_line("null page protection", vmm_query_page(0u, 0, 0) != 0 ? 0 : -1) != 0;
+    failures += selftest_line("dynamic page mapping", vmm_self_test()) != 0;
     failures += selftest_line("VFS root", vfs_read("/etc/version", &data, &size) == 0 &&
                               size != 0u ? 0 : -1) != 0;
     failures += selftest_line("device registry", device_count() >= 9u ? 0 : -1) != 0;
@@ -717,6 +859,7 @@ static void run_command(const char *command)
         console_write("\nFilesystem: ls dir cd pwd mkdir touch write append cat type open rm rmdir mount df\n");
         console_write("System:     date uptime ticks sleep meminfo free devices lspci drivers features\n");
         console_write("Kernel:     ps dmesg selftest heaptest pagetest synctest faulttest\n");
+        console_write("Debug:      cpuinfo heapinfo irqstat pagetable\n");
         console_write("Info:       uname version hostname whoami\n");
         console_write("Other:      echo clear cls reboot\n");
         console_write("Use '<command> help' is not required; arguments follow the command.\n");
@@ -803,6 +946,14 @@ static void run_command(const char *command)
         command_meminfo();
     } else if (text_equals(command, "free")) {
         command_free();
+    } else if (text_equals(command, "heapinfo")) {
+        command_heapinfo();
+    } else if (text_equals(command, "cpuinfo")) {
+        command_cpuinfo();
+    } else if (text_equals(command, "irqstat")) {
+        command_irqstat();
+    } else if (text_equals(command, "pagetable")) {
+        command_pagetable();
     } else if (text_equals(command, "mount")) {
         console_write("root on / type ");
         console_write(vfs_root_type());
@@ -844,9 +995,9 @@ static void run_command(const char *command)
     } else if (text_equals(command, "features")) {
         command_features();
     } else if (text_equals(command, "version")) {
-        console_write("MVH Kernel 1.1.1 x86_64 ELF64\n");
+        console_write("MVH Kernel 1.1.2 x86_64 ELF64\n");
     } else if (text_equals(command, "uname") || text_equals(command, "uname -a")) {
-        console_write("MVHKernel mvhcloud 1.1.1 x86_64\n");
+        console_write("MVHKernel mvhcloud 1.1.2 x86_64\n");
     } else if (text_equals(command, "hostname")) {
         console_write("mvhcloud\n");
     } else if (text_equals(command, "whoami")) {
@@ -884,9 +1035,15 @@ void kernel_main(uint64_t memory_kib, uint64_t boot_data)
     (void)boot_data;
     klog_init();
     hal_init();
+    cpu_init();
+    klog_set_console(1u);
     klog_write("INFO", "hardware abstraction layer initialized");
     pmm_init(memory_kib, (uintptr_t)&__kernel_end);
     klog_write("INFO", "physical memory manager initialized");
+    if (vmm_init() != 0) {
+        kernel_panic("virtual memory manager initialization failed");
+    }
+    klog_write("INFO", "paging protections and null guard initialized");
     if (heap_init() != 0) {
         kernel_panic("kernel heap initialization failed");
     }
@@ -898,7 +1055,7 @@ void kernel_main(uint64_t memory_kib, uint64_t boot_data)
     klog_write("INFO", "device manager initialized");
     console_colored("+==================================================+\n", 0x0Bu);
     console_colored("|              MVHCLOUD OS x86_64                  |\n", 0x0Fu);
-    console_colored("|         Version 1.1.1 - MVHCLOUD.com             |\n", 0x0Fu);
+    console_colored("|         Version 1.1.2 - MVHCLOUD.com             |\n", 0x0Fu);
     console_colored("+==================================================+\n", 0x0Bu);
     console_write("MVH kernel ready\n");
     console_write("\nType 'help' for available commands.\n");

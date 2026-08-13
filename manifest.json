@@ -1,6 +1,6 @@
 {
   "name": "MVH Kernel",
-  "version": "1.1.1",
+  "version": "1.1.2",
   "website": "https://MVHCLOUD.com",
   "architecture": "x86_64",
   "format": "ELF64",
@@ -20,6 +20,9 @@
     "serial-uart-16550",
     "ps2-keyboard-en-us",
     "x86-cpuid",
+    "x86-fpu-xsave",
+    "x86-msr-rng",
+    "x86-paging",
     "cmos-rtc",
     "pci-config",
     "x86-idt-pic",
@@ -38,14 +41,20 @@
     "kernel-log",
     "kernel-panic",
     "atomics-spinlocks-mutexes",
-    "kernel-self-test"
+    "kernel-self-test",
+    "cpu-hardware-diagnostics",
+    "interrupt-statistics",
+    "heap-hardening"
   ],
   "memory": {
     "page_size": 4096,
     "identity_map_limit_mib": 1024,
     "heap_size_mib": 1,
     "nx_capability_detection": true,
-    "nx_enforcement": false,
+    "nx_enforcement": true,
+    "null_page_unmapped": true,
+    "supervisor_write_protect": true,
+    "dynamic_page_mapping": true,
     "user_kernel_separation": false
   },
   "limitations": [
@@ -53,14 +62,15 @@
     "kernel-mode-only",
     "volatile-root-filesystem",
     "no-userspace-elf-loader",
-    "legacy-pic-no-apic",
-    "no-acpi",
+    "legacy-pic-active-apic-detection-only",
+    "no-acpi-boot-table-handoff",
+    "cpu-temperature-requires-platform-sensor-driver",
     "no-compiler-stack-protector",
     "no-network-usb-storage-stack"
   ],
   "compatibility": {
     "abi": 1,
     "release_series": "1.1",
-    "backward_compatible_with": ["1.1"]
+    "backward_compatible_with": ["1.1", "1.1.1"]
   }
 }

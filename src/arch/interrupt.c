@@ -19,6 +19,8 @@ typedef struct {
 } __attribute__((packed)) idt_pointer_t;
 
 static idt_entry_t idt[256];
+volatile uint64_t interrupt_counters[256];
+static uint64_t spurious_interrupts;
 
 extern void irq_timer_entry(void);
 extern void exception_stub_0(void);
@@ -99,6 +101,7 @@ void interrupt_init(void)
     uint16_t index;
     interrupt_disable();
     for (index = 0u; index < 256u; index++) {
+        interrupt_counters[index] = 0u;
         idt[index].offset_low = 0u;
         idt[index].selector = 0u;
         idt[index].ist = 0u;
@@ -117,6 +120,25 @@ void interrupt_init(void)
     pic_remap();
     io_out8(0x21u, 0xFEu);
     io_out8(0xA1u, 0xFFu);
+    spurious_interrupts = 0u;
+}
+
+uint64_t interrupt_count(uint8_t vector)
+{
+    return interrupt_counters[vector];
+}
+
+uint64_t interrupt_total(void)
+{
+    uint64_t total = 0u;
+    uint16_t index;
+    for (index = 0u; index < 256u; index++) total += interrupt_counters[index];
+    return total;
+}
+
+uint64_t interrupt_spurious_count(void)
+{
+    return spurious_interrupts;
 }
 
 void exception_dispatch(void *frame)

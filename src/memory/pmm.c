@@ -9,6 +9,10 @@ static uint8_t page_bitmap[PMM_BITMAP_BYTES];
 static uint32_t managed_pages;
 static uint32_t reserved_pages;
 static uint32_t used_pages;
+static uint64_t allocation_requests;
+static uint64_t free_requests;
+static uint64_t failed_allocations;
+static uint32_t peak_used_pages;
 
 static void page_set(uint32_t page)
 {
@@ -47,6 +51,10 @@ void pmm_init(uint64_t memory_kib, uintptr_t kernel_end)
         page_clear(page);
     }
     used_pages = reserved_pages;
+    allocation_requests = 0u;
+    free_requests = 0u;
+    failed_allocations = 0u;
+    peak_used_pages = used_pages;
 }
 
 void *pmm_alloc_pages(uint32_t count)
@@ -54,7 +62,9 @@ void *pmm_alloc_pages(uint32_t count)
     uint32_t start;
     uint32_t page;
     uint32_t found;
+    allocation_requests++;
     if (count == 0u || count > managed_pages) {
+        failed_allocations++;
         return 0;
     }
     for (start = reserved_pages; start + count <= managed_pages; start++) {
@@ -71,9 +81,11 @@ void *pmm_alloc_pages(uint32_t count)
                 page_set(start + page);
             }
             used_pages += count;
+            if (used_pages > peak_used_pages) peak_used_pages = used_pages;
             return (void *)(uintptr_t)((uint64_t)start * PAGE_SIZE);
         }
     }
+    failed_allocations++;
     return 0;
 }
 
@@ -81,7 +93,8 @@ void pmm_free_pages(void *address, uint32_t count)
 {
     uint32_t start = (uint32_t)((uintptr_t)address / PAGE_SIZE);
     uint32_t page;
-    if (((uintptr_t)address & (PAGE_SIZE - 1u)) != 0u || start < reserved_pages ||
+    free_requests++;
+    if (count == 0u || ((uintptr_t)address & (PAGE_SIZE - 1u)) != 0u || start < reserved_pages ||
         start + count > managed_pages) {
         return;
     }
@@ -99,6 +112,10 @@ void pmm_get_stats(pmm_stats_t *stats)
     stats->used_pages = used_pages;
     stats->free_pages = managed_pages - used_pages;
     stats->reserved_pages = reserved_pages;
+    stats->allocation_requests = allocation_requests;
+    stats->free_requests = free_requests;
+    stats->failed_allocations = failed_allocations;
+    stats->peak_used_pages = peak_used_pages;
 }
 
 int pmm_self_test(void)

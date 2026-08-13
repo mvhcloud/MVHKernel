@@ -1,5 +1,20 @@
 # MVH Kernel Release Log
 
+## 1.1.2
+
+- Added dynamic 4 KiB page mapping, unmapping and lookup APIs
+- Added read-only executable kernel text, non-executable data and a null-page guard
+- Enabled supervisor write protection and available NX, SMEP, SMAP and UMIP protections
+- Added FPU, SSE and XSAVE initialization with AVX state support when available
+- Added extended CPU family, model, APIC, cache, SIMD, TSC and RNG diagnostics
+- Added capability-guarded MSR primitives and explicit unavailable reporting for unsupported temperature and microcode sources
+- Added PMM request, failure and peak-use statistics
+- Added heap canaries, corruption panic, free poisoning, invalid-free tracking and fragmentation statistics
+- Added exception register/control-register dumps and per-vector interrupt counters
+- Increased the structured timestamped kernel log ring to 16 KiB
+- Added `cpuinfo`, `heapinfo`, `irqstat` and `pagetable` shell commands
+- Kept ACPI, HPET, IOAPIC and Local APIC activation disabled until verified firmware-table handoff is available
+
 ## 1.1.1
 
 - CPU exception gates for vectors 0 through 31

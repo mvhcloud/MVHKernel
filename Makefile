@@ -3,7 +3,7 @@ LD := ld
 
 BUILD := build
 CFLAGS := -m64 -mno-red-zone -std=c11 -ffreestanding -fno-pie -fno-stack-protector -fno-builtin -fno-unwind-tables -fno-asynchronous-unwind-tables -fno-omit-frame-pointer -Wall -Wextra -Werror -O2 -Iinclude
-OBJECTS := $(BUILD)/entry64.o $(BUILD)/interrupt64.o $(BUILD)/interrupt.o $(BUILD)/hal.o $(BUILD)/log.o $(BUILD)/panic.o $(BUILD)/sync.o $(BUILD)/device.o $(BUILD)/pmm.o $(BUILD)/heap.o $(BUILD)/task.o $(BUILD)/kernel.o $(BUILD)/vga.o $(BUILD)/serial.o $(BUILD)/keyboard.o $(BUILD)/cpu.o $(BUILD)/rtc.o $(BUILD)/pci.o $(BUILD)/timer.o $(BUILD)/ramfs.o $(BUILD)/vfs.o
+OBJECTS := $(BUILD)/entry64.o $(BUILD)/interrupt64.o $(BUILD)/interrupt.o $(BUILD)/hal.o $(BUILD)/log.o $(BUILD)/panic.o $(BUILD)/sync.o $(BUILD)/device.o $(BUILD)/pmm.o $(BUILD)/vmm.o $(BUILD)/heap.o $(BUILD)/task.o $(BUILD)/kernel.o $(BUILD)/vga.o $(BUILD)/serial.o $(BUILD)/keyboard.o $(BUILD)/cpu.o $(BUILD)/rtc.o $(BUILD)/pci.o $(BUILD)/timer.o $(BUILD)/ramfs.o $(BUILD)/vfs.o
 
 .PHONY: all clean
 
@@ -37,6 +37,9 @@ $(BUILD)/device.o: src/device/device.c | $(BUILD)
 	$(CC) $(CFLAGS) -c $< -o $@
 
 $(BUILD)/pmm.o: src/memory/pmm.c | $(BUILD)
+	$(CC) $(CFLAGS) -c $< -o $@
+
+$(BUILD)/vmm.o: src/memory/vmm.c | $(BUILD)
 	$(CC) $(CFLAGS) -c $< -o $@
 
 $(BUILD)/heap.o: src/memory/heap.c | $(BUILD)

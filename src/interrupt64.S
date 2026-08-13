@@ -3,9 +3,11 @@
 .global irq_timer_entry
 .type irq_timer_entry, @function
 .extern timer_ticks_value
+.extern interrupt_counters
 irq_timer_entry:
     push %rax
     incq timer_ticks_value(%rip)
+    incq interrupt_counters+256(%rip)
     mov $0x20, %al
     out %al, $0x20
     pop %rax
@@ -48,6 +50,9 @@ exception_common:
     push %r13
     push %r14
     push %r15
+    lea interrupt_counters(%rip), %rax
+    mov 120(%rsp), %rcx
+    incq (%rax,%rcx,8)
     mov %rsp, %rdi
     and $-16, %rsp
     call exception_dispatch
