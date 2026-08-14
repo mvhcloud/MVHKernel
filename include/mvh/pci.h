@@ -11,6 +11,13 @@ typedef struct {
     uint8_t subclass;
     uint16_t vendor;
     uint16_t device;
+    uint8_t header_type;
+    uint8_t irq_line;
+    uint8_t irq_pin;
+    uint8_t bar_count;
+    uint64_t bar_base[6];
+    uint8_t bar_is_io[6];
+    uint8_t bar_is_64[6];
 } pci_device_t;
 
 uint32_t pci_scan(pci_device_t *devices, uint32_t capacity);

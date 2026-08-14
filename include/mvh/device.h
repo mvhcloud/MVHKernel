@@ -15,7 +15,9 @@ typedef enum {
     DEVICE_SERIAL,
     DEVICE_CLOCK,
     DEVICE_BUS,
-    DEVICE_FILESYSTEM
+    DEVICE_FILESYSTEM,
+    DEVICE_RANDOM,
+    DEVICE_BLOCK
 } device_type_t;
 
 typedef struct {

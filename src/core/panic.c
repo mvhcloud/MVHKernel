@@ -1,5 +1,6 @@
 #include <stdint.h>
 #include "mvh/interrupt.h"
+#include "mvh/assert.h"
 #include "mvh/log.h"
 #include "mvh/panic.h"
 #include "mvh/serial.h"
@@ -44,6 +45,21 @@ static void panic_hex8(uint8_t value)
     static const char digits[] = "0123456789ABCDEF";
     panic_put(digits[value >> 4u]);
     panic_put(digits[value & 0x0Fu]);
+}
+
+static void panic_number(uint64_t value)
+{
+    char digits[21];
+    uint32_t length = 0u;
+    if (value == 0u) {
+        panic_put('0');
+        return;
+    }
+    while (value != 0u) {
+        digits[length++] = (char)('0' + value % 10u);
+        value /= 10u;
+    }
+    while (length != 0u) panic_put(digits[--length]);
 }
 
 static void panic_bit(const char *name, uint64_t value, uint32_t bit)
@@ -126,6 +142,24 @@ void kernel_panic(const char *message)
     vga_set_color(0x0Fu);
     panic_write("Panic code: MVH-KERNEL-0001\n");
     panic_write(message);
+    panic_write("\nSystem halted safely.\n");
+    panic_halt();
+}
+
+void kernel_assert_fail(const char *expression, const char *file, unsigned int line)
+{
+    interrupt_disable();
+    klog_write("FATAL", "kernel assertion failed");
+    vga_cursor_disable();
+    vga_set_color(0x4Fu);
+    panic_write("\n================ MVH KERNEL PANIC ================\n");
+    vga_set_color(0x0Fu);
+    panic_write("Panic code: MVH-ASSERT-0001\nAssertion: ");
+    panic_write(expression);
+    panic_write("\nLocation: ");
+    panic_write(file);
+    panic_write(":");
+    panic_number(line);
     panic_write("\nSystem halted safely.\n");
     panic_halt();
 }

@@ -1,0 +1,37 @@
+name: Kernel build
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+  schedule:
+    - cron: "17 3 * * *"
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build ELF64 kernel
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out sources
+        uses: actions/checkout@v7
+
+      - name: Build kernel
+        run: make clean all
+
+      - name: Validate ELF64 image
+        run: |
+          test -s build/kernel.elf
+          readelf -h build/kernel.elf | grep -F "ELF64"
+          readelf -h build/kernel.elf | grep -F "Advanced Micro Devices X86-64"
+
+      - name: Upload kernel artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: mvh-kernel-${{ github.sha }}
+          path: build/kernel.elf
+          if-no-files-found: error
+          retention-days: 14

@@ -1,5 +1,6 @@
 #include <stdint.h>
 #include "mvh/fs.h"
+#include "mvh/version.h"
 
 #define FS_NODE_MAX 64u
 
@@ -185,11 +186,11 @@ void fs_init(void)
     fs_mkdir("/tmp");
     fs_mkdir("/var");
     fs_touch("/home/welcome.txt");
-    fs_write("/home/welcome.txt", "Welcome to MVH Kernel 1.1.2\n", 0u);
+    fs_write("/home/welcome.txt", "Welcome to " MVH_KERNEL_NAME " " MVH_KERNEL_VERSION "\n", 0u);
     fs_touch("/etc/version");
-    fs_write("/etc/version", "1.1.2\n", 0u);
+    fs_write("/etc/version", MVH_KERNEL_VERSION "\n", 0u);
     fs_touch("/kernel/release");
-    fs_write("/kernel/release", "MVHKernel 1.1.2 x86_64\n", 0u);
+    fs_write("/kernel/release", "MVHKernel " MVH_KERNEL_VERSION " " MVH_KERNEL_ARCH "\n", 0u);
 }
 
 int fs_chdir(const char *path)

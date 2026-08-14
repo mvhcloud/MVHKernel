@@ -1,6 +1,6 @@
 {
   "name": "MVH Kernel",
-  "version": "1.1.2",
+  "version": "1.1.3",
   "website": "https://MVHCLOUD.com",
   "architecture": "x86_64",
   "format": "ELF64",
@@ -26,7 +26,7 @@
     "amd-northbridge-smn-temperature",
     "x86-paging",
     "cmos-rtc",
-    "pci-config",
+    "pci-config-bars",
     "x86-idt-pic",
     "x86-exception-dispatch",
     "pit-8254",
@@ -48,7 +48,12 @@
     "interrupt-statistics",
     "heap-hardening",
     "panic-error-decoder",
-    "panic-stack-trace"
+    "panic-stack-trace",
+    "kernel-assertions",
+    "entropy-pool-chacha20",
+    "ticket-and-rw-locks",
+    "block-device-registry",
+    "mbr-gpt-partition-probe"
   ],
   "memory": {
     "page_size": 4096,
@@ -70,11 +75,12 @@
     "no-acpi-boot-table-handoff",
     "cpu-temperature-limited-to-supported-intel-dts-and-amd-families",
     "no-compiler-stack-protector",
-    "no-network-usb-storage-stack"
+    "no-network-usb-storage-stack",
+    "random-output-not-ready-below-256-estimated-entropy-bits"
   ],
   "compatibility": {
     "abi": 1,
     "release_series": "1.1",
-    "backward_compatible_with": ["1.1", "1.1.1"]
+    "backward_compatible_with": ["1.1", "1.1.1", "1.1.2"]
   }
 }

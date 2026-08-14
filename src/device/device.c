@@ -25,6 +25,7 @@ void device_manager_init(void)
 int device_register(const char *name, device_type_t type, uint8_t online)
 {
     uint32_t index;
+    if (name == 0 || name[0] == '\0' || type > DEVICE_BLOCK) return -1;
     spinlock_lock(&device_lock);
     if (registered_devices >= DEVICE_MAX) {
         spinlock_unlock(&device_lock);
@@ -41,14 +42,20 @@ int device_register(const char *name, device_type_t type, uint8_t online)
 
 uint32_t device_count(void)
 {
-    return registered_devices;
+    uint32_t count;
+    spinlock_lock(&device_lock);
+    count = registered_devices;
+    spinlock_unlock(&device_lock);
+    return count;
 }
 
 uint32_t device_list(device_info_t *devices, uint32_t capacity)
 {
-    uint32_t count = registered_devices < capacity ? registered_devices : capacity;
+    uint32_t count;
     uint32_t index;
+    if (devices == 0 || capacity == 0u) return 0u;
     spinlock_lock(&device_lock);
+    count = registered_devices < capacity ? registered_devices : capacity;
     for (index = 0u; index < count; index++) {
         devices[index] = device_table[index];
     }
@@ -60,7 +67,7 @@ const char *device_type_name(device_type_t type)
 {
     static const char *const names[] = {
         "CPU", "IRQ", "TIMER", "INPUT", "DISPLAY",
-        "SERIAL", "CLOCK", "BUS", "FILESYSTEM"
+        "SERIAL", "CLOCK", "BUS", "FILESYSTEM", "RANDOM", "BLOCK"
     };
-    return type <= DEVICE_FILESYSTEM ? names[type] : "UNKNOWN";
+    return type <= DEVICE_BLOCK ? names[type] : "UNKNOWN";
 }

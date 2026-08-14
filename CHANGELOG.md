@@ -1,5 +1,19 @@
 # MVH Kernel Release Log
 
+## 1.1.3
+
+- Completed kernel assertion handling with stable panic code and source location
+- Added a locked ChaCha20-based entropy pool with hardware RNG seeding and explicit readiness reporting
+- Added fair ticket locks and reader/writer locks with self-test coverage
+- Added a validated block-device registry plus bounded MBR and GPT partition probing
+- Added `random` and `blockdev` diagnostic commands and extended the combined kernel self-test
+- Added bounded PCI enumeration with interrupt, header and BAR resource metadata
+- Fixed capacity handling in PCI discovery and cleanup after block-layer self-test failures
+- Hardened device and block registries against invalid inputs and inconsistent reads
+- Centralized compiled release metadata in `mvh/version.h`
+- Removed OS product branding from the standalone kernel interface
+- Added push, pull-request, manual and daily ELF64 build artifacts through GitHub Actions
+
 ## 1.1.2
 
 - Added dynamic 4 KiB page mapping, unmapping and lookup APIs

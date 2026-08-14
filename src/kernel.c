@@ -1,4 +1,6 @@
 #include <stdint.h>
+#include "mvh/assert.h"
+#include "mvh/block.h"
 #include "mvh/cpu.h"
 #include "mvh/device.h"
 #include "mvh/fs.h"
@@ -9,11 +11,13 @@
 #include "mvh/panic.h"
 #include "mvh/pci.h"
 #include "mvh/rtc.h"
+#include "mvh/random.h"
 #include "mvh/serial.h"
 #include "mvh/sync.h"
 #include "mvh/task.h"
 #include "mvh/vfs.h"
 #include "mvh/vga.h"
+#include "mvh/version.h"
 
 static uint8_t language;
 
@@ -364,9 +368,9 @@ static void show_cpu(void)
 static void show_about(void)
 {
     console_colored("+==================== MVHCLOUD ====================+\n", 0x0Bu);
-    console_write(localized("| Product      : MVHCLOUD OS\n", "| Produkt      : MVHCLOUD OS\n",
-                            "| Producto     : MVHCLOUD OS\n", "| Produit      : MVHCLOUD OS\n"));
-    console_write("| Kernel       : MVH Kernel 1.1.2\n");
+    console_write(localized("| Product      : MVH Kernel\n", "| Produkt      : MVH Kernel\n",
+                            "| Producto     : MVH Kernel\n", "| Produit      : MVH Kernel\n"));
+    console_write("| Release      : " MVH_KERNEL_VERSION "\n");
     console_write(localized("| Architecture : x86_64 / ELF64\n", "| Architektur  : x86_64 / ELF64\n",
                             "| Arquitectura : x86_64 / ELF64\n", "| Architecture : x86_64 / ELF64\n"));
     console_write("| Website      : https://MVHCLOUD.com\n");
@@ -379,10 +383,10 @@ static void show_about(void)
                             "| Pilotes      : VGA, PS/2, UART, RTC, PCI, PIT\n"));
     console_write("| License      : MIT\n");
     console_colored("+--------------------------------------------------+\n", 0x0Bu);
-    console_write(localized("MVHCLOUD builds independent software foundations\nfor custom operating systems and experiments.\n",
-                            "MVHCLOUD entwickelt unabhaengige Grundlagen\nfuer eigene Betriebssysteme und Experimente.\n",
-                            "MVHCLOUD crea bases de software independientes\npara sistemas operativos y experimentos.\n",
-                            "MVHCLOUD cree des bases logicielles independantes\npour les systemes et les experimentations.\n"));
+    console_write(localized("A standalone kernel foundation for low-level experiments.\nNo bootloader or OS distribution is included.\n",
+                            "Ein eigenstaendiger Kernel fuer Low-Level-Experimente.\nBootloader und OS-Distribution sind nicht enthalten.\n",
+                            "Un kernel independiente para experimentos de bajo nivel.\nNo incluye cargador ni distribucion de sistema.\n",
+                            "Un noyau autonome pour les experimentations bas niveau.\nAucun chargeur ni distribution systeme n'est inclus.\n"));
 }
 
 static void show_statistics(void)
@@ -391,7 +395,7 @@ static void show_statistics(void)
     vga_cursor_disable();
     vga_clear();
     console_colored("+==================================================+\n", 0x0Bu);
-    console_colored("|          MVHCLOUD SYSTEM STATISTICS              |\n", 0x0Fu);
+    console_colored("|            MVH KERNEL STATISTICS                 |\n", 0x0Fu);
     console_colored("+==================================================+\n\n", 0x0Bu);
     show_ram();
     console_write("\n");
@@ -514,6 +518,7 @@ static void command_lspci(void)
     pci_device_t devices[32];
     uint32_t count = hal_pci_scan(devices, 32u);
     uint32_t index;
+    uint32_t bar;
     for (index = 0; index < count; index++) {
         console_number(devices[index].bus);
         console_put(':');
@@ -526,10 +531,53 @@ static void command_lspci(void)
         console_hex16(devices[index].device);
         console_write("  ");
         console_write(pci_class_name(devices[index].class_code));
+        console_write("  IRQ ");
+        if (devices[index].irq_pin == 0u) console_write("none");
+        else console_number(devices[index].irq_line);
         console_write("\n");
+        for (bar = 0u; bar < devices[index].bar_count; bar++) {
+            if (devices[index].bar_base[bar] == 0u) continue;
+            console_write("    BAR"); console_number(bar); console_write(": ");
+            console_write(devices[index].bar_is_io[bar] != 0u ? "I/O " : "MMIO ");
+            if (devices[index].bar_is_64[bar] != 0u) console_write("64-bit ");
+            console_hex64(devices[index].bar_base[bar]);
+            console_write("\n");
+        }
     }
     if (count == 0u) {
         console_write("No PCI devices found.\n");
+    }
+}
+
+static void command_blockdev(void)
+{
+    block_device_t devices[BLOCK_DEVICE_MAX];
+    uint32_t count = block_list(devices, BLOCK_DEVICE_MAX);
+    uint32_t index;
+    if (count == 0u) {
+        console_write("No block devices registered.\n");
+        return;
+    }
+    console_write("ID  NAME  SECTORS  BYTES/SECTOR  MODE  TABLE\n");
+    for (index = 0u; index < count; index++) {
+        partition_info_t partitions;
+        console_number(devices[index].id);
+        console_write("  ");
+        console_write(devices[index].name);
+        console_write("  ");
+        console_number(devices[index].sector_count);
+        console_write("  ");
+        console_number(devices[index].sector_size);
+        console_write(devices[index].writable != 0u ? "  rw  " : "  ro  ");
+        if (partition_probe(devices[index].id, &partitions) == 0) {
+            console_write(partition_table_name(partitions.type));
+            console_write(" (");
+            console_number(partitions.partition_count);
+            console_write(")");
+        } else {
+            console_write("unavailable");
+        }
+        console_write("\n");
     }
 }
 
@@ -599,6 +647,21 @@ static void command_features(void)
     console_write(", SMAP "); console_write(security.smap != 0u ? "on" : "off");
     console_write(", UMIP "); console_write(security.umip != 0u ? "on\n" : "off\n");
     console_write("Additional detected cores require SMP startup support.\n");
+}
+
+static void command_random(void)
+{
+    uint32_t bits = random_entropy_bits();
+    console_write("Entropy pool: ");
+    console_number(bits);
+    console_write("/256 estimated bits (CSPRNG ");
+    if (random_is_ready() == 0u) {
+        console_write("not ready)\nSample withheld until the pool is ready.\n");
+        return;
+    }
+    console_write("ready)\nRandom sample: ");
+    console_hex64(random_u64());
+    console_write("\n");
 }
 
 static void command_uptime(void)
@@ -818,12 +881,14 @@ static void command_selftest(void)
     failures += selftest_line("physical page allocator", pmm_self_test()) != 0;
     failures += selftest_line("kernel heap", heap_self_test()) != 0;
     failures += selftest_line("atomics and locks", sync_self_test()) != 0;
+    failures += selftest_line("entropy generator", random_self_test()) != 0;
+    failures += selftest_line("block and partition layer", block_self_test()) != 0;
     failures += selftest_line("heap structure", heap_validate()) != 0;
     failures += selftest_line("null page protection", vmm_query_page(0u, 0, 0) != 0 ? 0 : -1) != 0;
     failures += selftest_line("dynamic page mapping", vmm_self_test()) != 0;
     failures += selftest_line("VFS root", vfs_read("/etc/version", &data, &size) == 0 &&
                               size != 0u ? 0 : -1) != 0;
-    failures += selftest_line("device registry", device_count() >= 9u ? 0 : -1) != 0;
+    failures += selftest_line("device registry", device_count() >= 11u ? 0 : -1) != 0;
     tick_before = hal_ticks();
     hal_sleep_ms(20u);
     failures += selftest_line("timer progress", hal_ticks() > tick_before ? 0 : -1) != 0;
@@ -860,6 +925,8 @@ static void register_platform_devices(void)
     device_register("cmos-rtc", DEVICE_CLOCK, 1u);
     device_register("pci-config", DEVICE_BUS, 1u);
     device_register("ramfs-root", DEVICE_FILESYSTEM, 1u);
+    device_register("entropy-pool", DEVICE_RANDOM, 1u);
+    device_register("block-registry", DEVICE_BLOCK, 1u);
 }
 
 static void run_command(const char *command)
@@ -878,8 +945,8 @@ static void run_command(const char *command)
             "  help         Mostrar esta lista\n  about        Mostrar informacion del sistema\n  statics      Abrir monitor de CPU y RAM\n  language     Mostrar o cambiar idioma\n  clear        Limpiar la pantalla\n  reboot       Reiniciar el sistema\n",
             "  help         Afficher cette liste\n  about        Afficher les informations systeme\n  statics      Ouvrir le moniteur CPU et RAM\n  language     Afficher ou changer la langue\n  clear        Effacer l'ecran\n  reboot       Redemarrer le systeme\n"));
         console_write("\nFilesystem: ls dir cd pwd mkdir touch write append cat type open rm rmdir mount df\n");
-        console_write("System:     date uptime ticks sleep meminfo free devices lspci drivers features\n");
-        console_write("Kernel:     ps dmesg selftest heaptest pagetest synctest faulttest\n");
+        console_write("System:     date uptime ticks sleep meminfo free devices lspci blockdev drivers features\n");
+        console_write("Kernel:     ps dmesg random selftest heaptest pagetest synctest faulttest\n");
         console_write("Debug:      cpuinfo heapinfo irqstat pagetable paniccodes\n");
         console_write("Info:       uname version hostname whoami\n");
         console_write("Other:      echo clear cls reboot\n");
@@ -977,6 +1044,8 @@ static void run_command(const char *command)
         command_pagetable();
     } else if (text_equals(command, "paniccodes")) {
         command_paniccodes();
+    } else if (text_equals(command, "random")) {
+        command_random();
     } else if (text_equals(command, "mount")) {
         console_write("root on / type ");
         console_write(vfs_root_type());
@@ -1013,14 +1082,16 @@ static void run_command(const char *command)
         command_devices();
     } else if (text_equals(command, "lspci")) {
         command_lspci();
+    } else if (text_equals(command, "blockdev")) {
+        command_blockdev();
     } else if (text_equals(command, "drivers")) {
         command_drivers();
     } else if (text_equals(command, "features")) {
         command_features();
     } else if (text_equals(command, "version")) {
-        console_write("MVH Kernel 1.1.2 x86_64 ELF64\n");
+        console_write(MVH_KERNEL_NAME " " MVH_KERNEL_VERSION " " MVH_KERNEL_ARCH " " MVH_KERNEL_FORMAT "\n");
     } else if (text_equals(command, "uname") || text_equals(command, "uname -a")) {
-        console_write("MVHKernel mvhcloud 1.1.2 x86_64\n");
+        console_write("MVHKernel mvhcloud " MVH_KERNEL_VERSION " " MVH_KERNEL_ARCH "\n");
     } else if (text_equals(command, "hostname")) {
         console_write("mvhcloud\n");
     } else if (text_equals(command, "whoami")) {
@@ -1059,6 +1130,9 @@ void kernel_main(uint64_t memory_kib, uint64_t boot_data)
     klog_init();
     hal_init();
     cpu_init();
+    random_init();
+    block_init();
+    ASSERT(hal_timer_frequency() != 0u);
     klog_set_console(1u);
     klog_write("INFO", "hardware abstraction layer initialized");
     pmm_init(memory_kib, (uintptr_t)&__kernel_end);
@@ -1077,15 +1151,18 @@ void kernel_main(uint64_t memory_kib, uint64_t boot_data)
     register_platform_devices();
     klog_write("INFO", "device manager initialized");
     console_colored("+==================================================+\n", 0x0Bu);
-    console_colored("|              MVHCLOUD OS x86_64                  |\n", 0x0Fu);
-    console_colored("|         Version 1.1.2 - MVHCLOUD.com             |\n", 0x0Fu);
+    console_colored("|                MVH Kernel x86_64                 |\n", 0x0Fu);
+    console_colored("|         Version " MVH_KERNEL_VERSION " - MVHCLOUD.com             |\n", 0x0Fu);
     console_colored("+==================================================+\n", 0x0Bu);
     console_write("MVH kernel ready\n");
     console_write("\nType 'help' for available commands.\n");
     console_write("System monitor: statics\n\n");
     show_prompt();
     for (;;) {
+        uint64_t input_entropy;
         input = hal_keyboard_read();
+        input_entropy = cpu_read_tsc() ^ (hal_ticks() << 8u) ^ (uint8_t)input;
+        entropy_add(&input_entropy, sizeof(input_entropy), 1u);
         if (input == '\n') {
             console_put('\n');
             command[length] = '\0';

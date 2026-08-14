@@ -15,6 +15,16 @@ typedef struct {
     spinlock_t lock;
 } mutex_t;
 
+typedef struct {
+    atomic_u32_t next;
+    atomic_u32_t serving;
+} ticket_lock_t;
+
+typedef struct {
+    atomic_u32_t readers;
+    atomic_u32_t writer;
+} rwlock_t;
+
 uint32_t atomic_u32_load(const atomic_u32_t *value);
 void atomic_u32_store(atomic_u32_t *value, uint32_t next);
 uint32_t atomic_u32_fetch_add(atomic_u32_t *value, uint32_t amount);
@@ -28,6 +38,14 @@ void mutex_init(mutex_t *mutex);
 void mutex_lock(mutex_t *mutex);
 uint8_t mutex_try_lock(mutex_t *mutex);
 void mutex_unlock(mutex_t *mutex);
+void ticket_lock_init(ticket_lock_t *lock);
+void ticket_lock_acquire(ticket_lock_t *lock);
+void ticket_lock_release(ticket_lock_t *lock);
+void rwlock_init(rwlock_t *lock);
+void rwlock_read_lock(rwlock_t *lock);
+void rwlock_read_unlock(rwlock_t *lock);
+void rwlock_write_lock(rwlock_t *lock);
+void rwlock_write_unlock(rwlock_t *lock);
 int sync_self_test(void);
 
 #endif
