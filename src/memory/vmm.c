@@ -44,7 +44,7 @@ static uint64_t *split_huge_page(uint64_t *entry)
     uint32_t index;
     if (table == 0) return 0;
     for (index = 0u; index < 512u; index++) {
-        table[index] = base + (uint64_t)index * PAGE_SIZE | VMM_PRESENT | common;
+        table[index] = (base + (uint64_t)index * PAGE_SIZE) | VMM_PRESENT | common;
     }
     *entry = ((uint64_t)(uintptr_t)table & PAGE_MASK) | VMM_PRESENT | VMM_WRITABLE;
     return table;
