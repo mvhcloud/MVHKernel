@@ -47,6 +47,8 @@ uint64_t vmm_mapped_pages(void);
 int vmm_self_test(void);
 int heap_init(void);
 void *kmalloc(uint64_t size);
+void *kcalloc(uint64_t count, uint64_t size);
+void *krealloc(void *address, uint64_t size);
 void kfree(void *address);
 uint64_t heap_total_bytes(void);
 uint64_t heap_used_bytes(void);

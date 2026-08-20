@@ -22,6 +22,9 @@ jobs:
       - name: Build kernel
         run: make clean all
 
+      - name: Run native core tests
+        run: make host-test
+
       - name: Validate ELF64 image
         run: |
           test -s build/kernel.elf

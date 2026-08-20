@@ -1,4 +1,4 @@
-# MVH Kernel 1.1.3
+# MVH Kernel 1.1.4
 
 MVH Kernel is a standalone x86_64 ELF64 kernel. The repository contains kernel code only and does not include a bootloader, installer, userspace or operating-system distribution.
 
@@ -33,6 +33,7 @@ MVH Kernel is a standalone x86_64 ELF64 kernel. The repository contains kernel c
 - Non-executable kernel data and heap pages when NX is available
 - Supervisor write protection and capability-gated NX, SMEP, SMAP and UMIP
 - One MiB coalescing kernel heap
+- Overflow-checked `kcalloc` and data-preserving `krealloc`
 - Heap guard pages, allocation canaries and freed-memory poisoning
 - Allocation, failure, peak-use and fragmentation statistics
 
@@ -46,6 +47,7 @@ MVH Kernel is a standalone x86_64 ELF64 kernel. The repository contains kernel c
 - Kernel task registry with PID, priority and state metadata
 - Typed device registry
 - Combined runtime self-test for memory, paging, heap, synchronization, entropy, block devices, VFS, devices and timer progress
+- Reusable CRC32 core with a standard-vector self-test
 
 ### Hardware support
 
@@ -69,7 +71,8 @@ MVH Kernel is a standalone x86_64 ELF64 kernel. The repository contains kernel c
 - Block-device registry with bounds-checked read and write dispatch
 - Read-only device enforcement
 - MBR and GPT partition-table detection
-- Partition count and protective-MBR reporting
+- GPT header CRC32, entry-array CRC32, LBA-range and entry-layout validation
+- Populated partition count, usable-LBA range and protective-MBR reporting
 
 The block layer is an interface foundation. No AHCI, NVMe, VirtIO Block or persistent filesystem driver is included yet.
 
@@ -80,7 +83,7 @@ The built-in shell is intended for kernel diagnostics and development. Important
 - System: `about`, `statics`, `date`, `uptime`, `ticks`, `sleep`, `meminfo`, `free`
 - CPU and buses: `cpuinfo`, `features`, `lspci`, `irqstat`, `devices`, `drivers`
 - Memory: `heapinfo`, `pagetable`, `heaptest`, `pagetest`
-- Kernel: `dmesg`, `ps`, `random`, `blockdev`, `selftest`, `synctest`, `paniccodes`
+- Kernel: `dmesg`, `ps`, `random`, `crc32`, `blockdev`, `selftest`, `synctest`, `paniccodes`
 - RAMFS: `ls`, `cd`, `pwd`, `mkdir`, `touch`, `write`, `append`, `cat`, `rm`, `mount`, `df`
 - Fault injection: `faulttest`, `faulttest page`
 
@@ -100,6 +103,12 @@ Requirements:
 
 The result is written to `build/kernel.elf`. GitHub Actions builds and validates the ELF64 image on pushes, pull requests, manual runs and a daily schedule.
 
+Pure CRC32 and storage-layer checks run natively without an emulator:
+
+```sh
+make host-test
+```
+
 ## Known failure conditions
 
 | Area | Symptom | Likely cause |
@@ -111,6 +120,7 @@ The result is written to `build/kernel.elf`. GitHub Actions builds and validates
 | Random generator | Entropy pool remains below 256 bits | RDRAND/RDSEED is unavailable or unsuccessful and too few keyboard timing events have been collected |
 | PCI scan | Device is listed without usable BARs or IRQ | Firmware or the virtual machine did not configure resources, or the device uses a capability not handled by the legacy configuration-space layer |
 | Block devices | `blockdev` reports no devices | The registry exists, but no AHCI, NVMe, VirtIO or other block driver has registered hardware |
+| GPT | Partition metadata is reported as unavailable | The protective MBR, GPT signature, header CRC32, entry-array CRC32 or LBA bounds are invalid |
 | Files | Files disappear after reboot | RAMFS is intentionally volatile and has no persistent storage backend |
 | CPU compatibility | Reserved-bit page fault after paging setup | NX is unavailable; the current protected mappings use the NX page-table bit for non-code memory |
 | Stack trace | Trace stops early or contains only a few frames | The frame-pointer chain is invalid, corrupted or outside the accepted identity-mapped address range |

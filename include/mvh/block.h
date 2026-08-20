@@ -31,6 +31,10 @@ typedef struct {
     partition_table_t type;
     uint32_t partition_count;
     uint8_t protective_mbr;
+    uint8_t gpt_header_valid;
+    uint8_t gpt_entries_valid;
+    uint64_t first_usable_lba;
+    uint64_t last_usable_lba;
 } partition_info_t;
 
 void block_init(void);

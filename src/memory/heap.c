@@ -74,6 +74,8 @@ void *kmalloc(uint64_t size)
 {
     heap_block_t *block = heap_first;
     heap_block_t *split;
+    uint64_t requested = size;
+    if (size == 0u) return 0;
     if (size > UINT64_MAX - sizeof(uint64_t) - 15u) {
         heap_failures++;
         return 0;
@@ -102,7 +104,7 @@ void *kmalloc(uint64_t size)
                 block->size = size;
             }
             block->free = 0u;
-            block->requested = size - sizeof(uint64_t);
+            block->requested = requested;
             *block_canary(block) = HEAP_CANARY ^ (uint64_t)(uintptr_t)block;
             heap_used += block->size;
             heap_allocations++;
@@ -169,6 +171,55 @@ uint64_t heap_allocation_count(void)
     return heap_allocations;
 }
 
+void *kcalloc(uint64_t count, uint64_t size)
+{
+    uint8_t *address;
+    uint64_t total;
+    uint64_t index;
+    if (count == 0u || size == 0u) return 0;
+    if (size > UINT64_MAX / count) {
+        heap_failures++;
+        return 0;
+    }
+    total = count * size;
+    address = (uint8_t *)kmalloc(total);
+    if (address == 0) return 0;
+    for (index = 0u; index < total; index++) address[index] = 0u;
+    return address;
+}
+
+void *krealloc(void *address, uint64_t size)
+{
+    heap_block_t *block;
+    uint8_t *replacement;
+    uint8_t *source = (uint8_t *)address;
+    uint64_t copy_size;
+    uint64_t index;
+    if (address == 0) return kmalloc(size);
+    if (size == 0u) {
+        kfree(address);
+        return 0;
+    }
+    block = ((heap_block_t *)address) - 1;
+    if (block->magic != HEAP_MAGIC || block->free != 0u) {
+        heap_invalid_frees++;
+        return 0;
+    }
+    if (*block_canary(block) != (HEAP_CANARY ^ (uint64_t)(uintptr_t)block)) {
+        kernel_panic("kernel heap canary corrupted");
+    }
+    if (size <= block->requested) {
+        block->requested = size;
+        return address;
+    }
+    replacement = (uint8_t *)kmalloc(size);
+    if (replacement == 0) return 0;
+    copy_size = block->requested;
+    for (index = 0u; index < copy_size; index++) replacement[index] = source[index];
+    kfree(address);
+    return replacement;
+}
+
 void heap_get_stats(heap_stats_t *stats)
 {
     heap_block_t *block = heap_first;
@@ -230,22 +281,43 @@ int heap_self_test(void)
     uint64_t used_before = heap_used_bytes();
     uint64_t allocations_before = heap_allocation_count();
     uint8_t *first = (uint8_t *)kmalloc(64u);
-    uint8_t *second = (uint8_t *)kmalloc(4096u);
+    uint8_t *second = (uint8_t *)kcalloc(32u, 4u);
+    uint8_t *resized;
     uint32_t index;
     if (first == 0 || second == 0) {
         kfree(first);
         kfree(second);
         return -1;
     }
+    for (index = 0u; index < 128u; index++) {
+        if (second[index] != 0u) {
+            kfree(second);
+            kfree(first);
+            return -1;
+        }
+    }
     for (index = 0u; index < 64u; index++) {
         first[index] = (uint8_t)index;
     }
+    resized = (uint8_t *)krealloc(first, 256u);
+    if (resized == 0) {
+        kfree(second);
+        kfree(first);
+        return -1;
+    }
+    first = resized;
     for (index = 0u; index < 64u; index++) {
         if (first[index] != (uint8_t)index) {
             kfree(second);
             kfree(first);
             return -1;
         }
+    }
+    resized = (uint8_t *)krealloc(first, 32u);
+    if (resized != first || kcalloc(UINT64_MAX, 2u) != 0) {
+        kfree(second);
+        kfree(first);
+        return -1;
     }
     kfree(second);
     kfree(first);

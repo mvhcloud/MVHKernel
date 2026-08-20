@@ -1,5 +1,17 @@
 # MVH Kernel Release Log
 
+## 1.1.4
+
+- Added a reusable CRC32 core with standard-vector and incremental-update self-tests
+- Added strict GPT header CRC32 and partition-entry-array CRC32 validation
+- Added GPT revision, header-size, reserved-field, LBA-range and entry-layout checks
+- Added populated GPT partition counting and usable-LBA reporting
+- Added overflow-checked `kcalloc` and data-preserving `krealloc` heap APIs
+- Fixed zero-length `kmalloc` behavior and preserved exact requested allocation sizes
+- Extended kernel self-tests for CRC32, zeroed allocation, reallocation and overflow rejection
+- Added the `crc32 <text>` diagnostic command and verified GPT details in `blockdev`
+- Added native host-side storage and CRC32 tests that run without QEMU
+
 ## 1.1.3
 
 - Completed kernel assertion handling with stable panic code and source location

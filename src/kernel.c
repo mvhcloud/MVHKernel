@@ -2,6 +2,7 @@
 #include "mvh/assert.h"
 #include "mvh/block.h"
 #include "mvh/cpu.h"
+#include "mvh/crc32.h"
 #include "mvh/device.h"
 #include "mvh/fs.h"
 #include "mvh/hal.h"
@@ -131,6 +132,16 @@ static void console_hex64(uint64_t value)
     int shift;
     console_write("0x");
     for (shift = 60; shift >= 0; shift -= 4) {
+        console_put(digits[(value >> (uint32_t)shift) & 0x0Fu]);
+    }
+}
+
+static void console_hex32(uint32_t value)
+{
+    static const char digits[] = "0123456789ABCDEF";
+    int shift;
+    console_write("0x");
+    for (shift = 28; shift >= 0; shift -= 4) {
         console_put(digits[(value >> (uint32_t)shift) & 0x0Fu]);
     }
 }
@@ -574,6 +585,12 @@ static void command_blockdev(void)
             console_write(" (");
             console_number(partitions.partition_count);
             console_write(")");
+            if (partitions.type == PARTITION_TABLE_GPT) {
+                console_write(" verified usable=");
+                console_number(partitions.first_usable_lba);
+                console_write("-");
+                console_number(partitions.last_usable_lba);
+            }
         } else {
             console_write("unavailable");
         }
@@ -661,6 +678,18 @@ static void command_random(void)
     }
     console_write("ready)\nRandom sample: ");
     console_hex64(random_u64());
+    console_write("\n");
+}
+
+static void command_crc32(const char *text)
+{
+    uint32_t size = 0u;
+    if (text[0] == '\0') {
+        console_write("Usage: crc32 <text>\n");
+        return;
+    }
+    while (text[size] != '\0') size++;
+    console_hex32(crc32(text, size));
     console_write("\n");
 }
 
@@ -881,6 +910,7 @@ static void command_selftest(void)
     failures += selftest_line("physical page allocator", pmm_self_test()) != 0;
     failures += selftest_line("kernel heap", heap_self_test()) != 0;
     failures += selftest_line("atomics and locks", sync_self_test()) != 0;
+    failures += selftest_line("CRC32 core", crc32_self_test()) != 0;
     failures += selftest_line("entropy generator", random_self_test()) != 0;
     failures += selftest_line("block and partition layer", block_self_test()) != 0;
     failures += selftest_line("heap structure", heap_validate()) != 0;
@@ -946,7 +976,7 @@ static void run_command(const char *command)
             "  help         Afficher cette liste\n  about        Afficher les informations systeme\n  statics      Ouvrir le moniteur CPU et RAM\n  language     Afficher ou changer la langue\n  clear        Effacer l'ecran\n  reboot       Redemarrer le systeme\n"));
         console_write("\nFilesystem: ls dir cd pwd mkdir touch write append cat type open rm rmdir mount df\n");
         console_write("System:     date uptime ticks sleep meminfo free devices lspci blockdev drivers features\n");
-        console_write("Kernel:     ps dmesg random selftest heaptest pagetest synctest faulttest\n");
+        console_write("Kernel:     ps dmesg random crc32 selftest heaptest pagetest synctest faulttest\n");
         console_write("Debug:      cpuinfo heapinfo irqstat pagetable paniccodes\n");
         console_write("Info:       uname version hostname whoami\n");
         console_write("Other:      echo clear cls reboot\n");
@@ -1046,6 +1076,8 @@ static void run_command(const char *command)
         command_paniccodes();
     } else if (text_equals(command, "random")) {
         command_random();
+    } else if ((argument = command_argument(command, "crc32")) != 0) {
+        command_crc32(argument);
     } else if (text_equals(command, "mount")) {
         console_write("root on / type ");
         console_write(vfs_root_type());
