@@ -7,6 +7,8 @@ The long-form roadmap supplied for 1.1.6 covers multiple independent kernel gene
 - BootInfo V2 and legacy handoff compatibility
 - ACPI RSDP/XSDT/RSDT discovery and table registry
 - MADT/FADT/HPET/MCFG/SRAT/SLIT metadata parsing
+- Indexed firmware CPU, IOAPIC, IRQ routing and PCIe segment records
+- SMBIOS 2.x/3.x platform and memory inventory
 - Existing paging hardening, heap checks, synchronization, entropy, block/GPT and RAMFS foundations
 
 ## Next P0 sequence
@@ -25,6 +27,6 @@ The long-form roadmap supplied for 1.1.6 covers multiple independent kernel gene
 - USB/xHCI/HID/mass storage
 - Network-device layer, VirtIO-Net/e1000, Ethernet, ARP, IPv4/IPv6, UDP and TCP
 - Crypto/RNG v2, hardening, modules, debugger, tracing and profiling
-- SMBIOS/power, NUMA, hotplug/error recovery and optional multiarch ports
+- Power management, NUMA, hotplug/error recovery and optional multiarch ports
 
 Every hardware-enabling phase requires rollback-safe initialization and a working legacy path. Features are not marked complete merely because metadata structures or command names exist.

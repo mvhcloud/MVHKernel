@@ -17,6 +17,7 @@
 #include "mvh/rtc.h"
 #include "mvh/random.h"
 #include "mvh/serial.h"
+#include "mvh/smbios.h"
 #include "mvh/sync.h"
 #include "mvh/task.h"
 #include "mvh/vfs.h"
@@ -27,6 +28,8 @@ static uint8_t language;
 
 _Static_assert(MVH_CONFIG_ARCH_X86_64 == 1, "MVH Kernel requires the x86_64 config");
 _Static_assert(MVH_CONFIG_BOOTINFO_V2 == 1, "BootInfo V2 must be enabled for ABI 2");
+_Static_assert(MVH_CONFIG_ACPI_PARSER == 1, "ACPI parser is required for this release");
+_Static_assert(MVH_CONFIG_SMBIOS_PARSER == 1, "SMBIOS parser is required for this release");
 
 extern char __kernel_end;
 
@@ -531,6 +534,84 @@ static void command_madtinfo(void)
     console_write("\n");
 }
 
+static void command_ioapicinfo(void)
+{
+    acpi_ioapic_info_t ioapic;
+    acpi_interrupt_override_t route;
+    uint32_t index;
+    console_colored("IOAPIC firmware routing\n", 0x0Eu);
+    if (acpi_ioapic_count() == 0u) {
+        console_write("  IOAPICs        : unavailable\n");
+        return;
+    }
+    for (index = 0u; index < acpi_ioapic_count(); index++) {
+        if (acpi_ioapic_info(index, &ioapic) != 0) continue;
+        console_write("  IOAPIC ");
+        console_number(ioapic.id);
+        console_write(" address=");
+        console_hex32(ioapic.address);
+        console_write(" GSI-base=");
+        console_number(ioapic.global_interrupt_base);
+        console_write("\n");
+    }
+    for (index = 0u; index < acpi_interrupt_override_count(); index++) {
+        if (acpi_interrupt_override_info(index, &route) != 0) continue;
+        console_write("  IRQ ");
+        console_number(route.source_irq);
+        console_write(" -> GSI ");
+        console_number(route.global_interrupt);
+        console_write(" flags=");
+        console_hex16(route.flags);
+        console_write("\n");
+    }
+    console_write("  Runtime state  : parsed, not activated\n");
+}
+
+static void command_mcfginfo(void)
+{
+    acpi_mcfg_segment_t segment;
+    uint32_t index;
+    console_colored("PCIe MCFG segments\n", 0x0Eu);
+    if (acpi_mcfg_segment_count() == 0u) {
+        console_write("  MCFG segments  : unavailable\n");
+        return;
+    }
+    for (index = 0u; index < acpi_mcfg_segment_count(); index++) {
+        if (acpi_mcfg_segment_info(index, &segment) != 0) continue;
+        console_write("  Segment ");
+        console_number(segment.segment_group);
+        console_write(" base=");
+        console_hex64(segment.base_address);
+        console_write(" buses=");
+        console_number(segment.start_bus);
+        console_write("-");
+        console_number(segment.end_bus);
+        console_write("\n");
+    }
+    console_write("  Runtime state  : validated, ECAM inactive\n");
+}
+
+static void command_smpinfo(void)
+{
+    acpi_cpu_info_t cpu;
+    uint32_t index;
+    console_colored("Firmware CPU topology\n", 0x0Eu);
+    console_write("  CPUs described : ");
+    console_number(acpi_cpu_count());
+    console_write("\n");
+    for (index = 0u; index < acpi_cpu_count(); index++) {
+        if (acpi_cpu_info(index, &cpu) != 0) continue;
+        console_write("  CPU uid=");
+        console_number(cpu.processor_uid);
+        console_write(" apic-id=");
+        console_number(cpu.apic_id);
+        console_write(cpu.x2apic != 0u ? " x2APIC" : " xAPIC");
+        console_write(cpu.enabled != 0u ? " enabled" :
+                      (cpu.online_capable != 0u ? " online-capable" : " disabled"));
+        console_write(index == 0u ? " BSP-running\n" : " AP-not-started\n");
+    }
+}
+
 static void command_hpetinfo(void)
 {
     const acpi_status_t *status = acpi_status();
@@ -542,6 +623,158 @@ static void command_hpetinfo(void)
     console_write("  MMIO address   : ");
     console_hex64(status->hpet_address);
     console_write("\n  Runtime state  : parsed, not activated\n");
+}
+
+static void console_optional_text(const char *text)
+{
+    console_write(text[0] != '\0' ? text : "not supplied");
+}
+
+static void command_smbiosinfo(void)
+{
+    const smbios_info_t *info = smbios_info();
+    console_colored("SMBIOS platform information\n", 0x0Eu);
+    if (info->available == 0u) {
+        console_write("  SMBIOS         : unavailable or rejected\n");
+        return;
+    }
+    console_write("  Entry point    : ");
+    console_write(info->entry_point_64 != 0u ? "SMBIOS 3.x (64-bit)" : "SMBIOS 2.x");
+    console_write("\n  Version        : ");
+    console_number(info->major);
+    console_write(".");
+    console_number(info->minor);
+    console_write("\n  Table address  : ");
+    console_hex64(info->table_address);
+    console_write("\n  Structures     : ");
+    console_number(info->parsed_structures);
+    console_write("\n  BIOS           : ");
+    console_optional_text(info->bios_vendor);
+    console_write(" / ");
+    console_optional_text(info->bios_version);
+    console_write("\n  System         : ");
+    console_optional_text(info->system_manufacturer);
+    console_write(" / ");
+    console_optional_text(info->system_product);
+    console_write("\n  Board          : ");
+    console_optional_text(info->baseboard_manufacturer);
+    console_write(" / ");
+    console_optional_text(info->baseboard_product);
+    console_write("\n  CPU sockets    : ");
+    console_number(info->processor_structures);
+    console_write("\n  Memory devices : ");
+    console_number(info->populated_memory_devices);
+    console_write("/");
+    console_number(info->memory_device_structures);
+    console_write("\n  Installed RAM  : ");
+    console_number(info->installed_memory_mib);
+    console_write(" MiB\n  Maximum speed  : ");
+    console_number(info->maximum_memory_speed_mhz);
+    console_write(" MHz\n");
+}
+
+static void command_pmmstat(void)
+{
+    pmm_stats_t stats;
+    pmm_get_stats(&stats);
+    console_colored("Physical memory allocator statistics\n", 0x0Eu);
+    console_write("  Total/reserved : ");
+    console_number(stats.total_pages);
+    console_write("/");
+    console_number(stats.reserved_pages);
+    console_write(" pages\n  Used/free      : ");
+    console_number(stats.used_pages);
+    console_write("/");
+    console_number(stats.free_pages);
+    console_write(" pages\n  Alloc/free req : ");
+    console_number(stats.allocation_requests);
+    console_write("/");
+    console_number(stats.free_requests);
+    console_write("\n  Failed allocs  : ");
+    console_number(stats.failed_allocations);
+    console_write("\n  Peak pages     : ");
+    console_number(stats.peak_used_pages);
+    console_write("\n");
+}
+
+static void command_timerstat(void)
+{
+    cpu_info_t info;
+    cpu_capabilities_t capabilities;
+    cpu_get_info(&info);
+    cpu_get_capabilities(&capabilities);
+    console_colored("Kernel time sources\n", 0x0Eu);
+    console_write("  Clockevent     : PIT legacy periodic\n  Frequency      : ");
+    console_number(hal_timer_frequency());
+    console_write(" Hz\n  Ticks          : ");
+    console_number(hal_ticks());
+    console_write("\n  Uptime         : ");
+    console_number(hal_uptime_seconds());
+    console_write(" seconds\n  TSC            : ");
+    console_write(capabilities.tsc != 0u ? "available" : "unavailable");
+    console_write("\n  Invariant TSC  : ");
+    console_write(capabilities.invariant_tsc != 0u ? "yes" : "no");
+    console_write("\n  TSC frequency  : ");
+    console_number(info.tsc_hz);
+    console_write(" Hz\n  HPET metadata  : ");
+    console_write(acpi_status()->hpet_address != 0u ? "available, inactive" : "unavailable");
+    console_write("\n");
+}
+
+static void command_randomstat(void)
+{
+    cpu_capabilities_t capabilities;
+    cpu_get_capabilities(&capabilities);
+    console_colored("Kernel entropy status\n", 0x0Eu);
+    console_write("  Ready          : ");
+    console_write(random_is_ready() != 0u ? "yes" : "no");
+    console_write("\n  Estimated bits : ");
+    console_number(random_entropy_bits());
+    console_write("/256\n  Boot seed      : ");
+    console_write((bootinfo_current()->flags & MVH_BOOTINFO_FLAG_RANDOM_SEED) != 0u ?
+                  "mixed" : "not supplied");
+    console_write("\n  RDRAND/RDSEED  : ");
+    console_write(capabilities.rdrand != 0u ? "yes" : "no");
+    console_write("/");
+    console_write(capabilities.rdseed != 0u ? "yes" : "no");
+    console_write("\n");
+}
+
+static void command_securityinfo(void)
+{
+    cpu_capabilities_t capabilities;
+    cpu_security_state_t enabled;
+    cpu_get_capabilities(&capabilities);
+    cpu_get_security_state(&enabled);
+    console_colored("Kernel security policy\n", 0x0Eu);
+    console_write("  Kernel sections: RX / RO-NX / RW-NX\n  Null page      : unmapped\n  Write protect  : ");
+    console_write(enabled.write_protect != 0u ? "enabled" : "disabled");
+    console_write("\n  NX available/on: ");
+    console_write(capabilities.nx != 0u ? "yes" : "no");
+    console_write("/");
+    console_write(enabled.nx != 0u ? "yes" : "no");
+    console_write("\n  SMEP enabled   : ");
+    console_write(enabled.smep != 0u ? "yes" : "no");
+    console_write("\n  SMAP enabled   : ");
+    console_write(enabled.smap != 0u ? "yes" : "no");
+    console_write("\n  UMIP enabled   : ");
+    console_write(enabled.umip != 0u ? "yes" : "no");
+    console_write("\n  Stack protector: not compiled\n  KASLR          : not implemented\n");
+}
+
+static void command_firmwareinfo(void)
+{
+    console_colored("Firmware handoff summary\n", 0x0Eu);
+    console_write("  Boot contract  : ");
+    console_write(bootinfo_current()->versioned != 0u ? "BootInfo V2" : "legacy");
+    console_write("\n  ACPI           : ");
+    console_write(acpi_status()->available != 0u ? "validated" : "unavailable");
+    console_write("\n  SMBIOS         : ");
+    console_write(smbios_info()->available != 0u ? "validated" : "unavailable");
+    console_write("\n  Framebuffer    : ");
+    console_write((bootinfo_current()->flags & MVH_BOOTINFO_FLAG_FRAMEBUFFER) != 0u ?
+                  "metadata supplied" : "not supplied");
+    console_write("\n");
 }
 
 static void show_statistics(void)
@@ -1057,6 +1290,7 @@ static void command_selftest(void)
     failures += selftest_line("CRC32 core", crc32_self_test()) != 0;
     failures += selftest_line("BootInfo V2 validator", bootinfo_self_test()) != 0;
     failures += selftest_line("ACPI parser", acpi_self_test()) != 0;
+    failures += selftest_line("SMBIOS parser", smbios_self_test()) != 0;
     failures += selftest_line("entropy generator", random_self_test()) != 0;
     failures += selftest_line("block and partition layer", block_self_test()) != 0;
     failures += selftest_line("heap structure", heap_validate()) != 0;
@@ -1123,7 +1357,9 @@ static void run_command(const char *command)
         console_write("\nFilesystem: ls dir cd pwd mkdir touch write append cat type open rm rmdir mount df\n");
         console_write("System:     date uptime ticks sleep meminfo free devices lspci blockdev drivers features bootinfo\n");
         console_write("Kernel:     ps dmesg random crc32 selftest heaptest pagetest synctest faulttest\n");
-        console_write("Debug:      cpuinfo acpiinfo acpitables madtinfo hpetinfo heapinfo irqstat pagetable paniccodes\n");
+        console_write("Debug:      cpuinfo firmwareinfo acpiinfo acpitables madtinfo ioapicinfo mcfginfo\n");
+        console_write("Firmware:   hpetinfo smbiosinfo smpinfo\n");
+        console_write("Stats:      pmmstat timerstat randomstat securityinfo heapinfo irqstat pagetable paniccodes\n");
         console_write("Info:       uname version hostname whoami\n");
         console_write("Other:      echo clear cls reboot\n");
         console_write("Use '<command> help' is not required; arguments follow the command.\n");
@@ -1222,8 +1458,26 @@ static void run_command(const char *command)
         command_acpitables();
     } else if (text_equals(command, "madtinfo")) {
         command_madtinfo();
+    } else if (text_equals(command, "ioapicinfo")) {
+        command_ioapicinfo();
+    } else if (text_equals(command, "mcfginfo")) {
+        command_mcfginfo();
+    } else if (text_equals(command, "smpinfo")) {
+        command_smpinfo();
     } else if (text_equals(command, "hpetinfo")) {
         command_hpetinfo();
+    } else if (text_equals(command, "smbiosinfo")) {
+        command_smbiosinfo();
+    } else if (text_equals(command, "firmwareinfo")) {
+        command_firmwareinfo();
+    } else if (text_equals(command, "pmmstat")) {
+        command_pmmstat();
+    } else if (text_equals(command, "timerstat")) {
+        command_timerstat();
+    } else if (text_equals(command, "randomstat")) {
+        command_randomstat();
+    } else if (text_equals(command, "securityinfo")) {
+        command_securityinfo();
     } else if (text_equals(command, "irqstat")) {
         command_irqstat();
     } else if (text_equals(command, "pagetable")) {
@@ -1339,6 +1593,11 @@ void kernel_main(uint64_t memory_kib, uint64_t boot_data)
             klog_write("INFO", "ACPI tables validated and registered");
         else klog_write("WARN", "ACPI handoff was rejected; legacy hardware path remains active");
     } else klog_write("INFO", "ACPI handoff unavailable; legacy hardware path remains active");
+    if ((bootinfo_current()->flags & MVH_BOOTINFO_FLAG_SMBIOS) != 0u) {
+        if (smbios_init(bootinfo_current()->smbios_address) == 0)
+            klog_write("INFO", "SMBIOS structures validated and indexed");
+        else klog_write("WARN", "SMBIOS handoff was rejected");
+    } else klog_write("INFO", "SMBIOS handoff unavailable");
     klog_write("INFO", "hardware abstraction layer initialized");
     pmm_init(memory_kib, (uintptr_t)&__kernel_end);
     klog_write("INFO", "physical memory manager initialized");

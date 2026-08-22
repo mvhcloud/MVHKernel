@@ -24,6 +24,14 @@ typedef struct {
 } registry_entry_t;
 
 static registry_entry_t registry[ACPI_MAX_TABLES];
+static acpi_cpu_info_t cpus[ACPI_MAX_CPUS];
+static acpi_ioapic_info_t ioapics[ACPI_MAX_IOAPICS];
+static acpi_interrupt_override_t overrides[ACPI_MAX_OVERRIDES];
+static acpi_mcfg_segment_t mcfg_segments[ACPI_MAX_MCFG_SEGMENTS];
+static uint32_t stored_cpus;
+static uint32_t stored_ioapics;
+static uint32_t stored_overrides;
+static uint32_t stored_mcfg_segments;
 static acpi_status_t state;
 
 static int bytes_equal(const char *left, const char *right, uint32_t length)
@@ -46,6 +54,11 @@ static uint32_t read_u32(const uint8_t *data)
 {
     return (uint32_t)data[0] | ((uint32_t)data[1] << 8u) |
            ((uint32_t)data[2] << 16u) | ((uint32_t)data[3] << 24u);
+}
+
+static uint16_t read_u16(const uint8_t *data)
+{
+    return (uint16_t)data[0] | ((uint16_t)data[1] << 8u);
 }
 
 static uint64_t read_u64(const uint8_t *data)
@@ -125,13 +138,48 @@ static int parse_madt(const acpi_sdt_header_t *header)
         uint8_t type = data[offset];
         uint8_t length = data[offset + 1u];
         if (length < 2u || length > header->length - offset) return -1;
-        if (type == 0u && length >= 8u) state.local_apics++;
-        else if (type == 1u && length >= 12u) state.ioapics++;
-        else if (type == 2u && length >= 10u) state.interrupt_overrides++;
+        if (type == 0u && length >= 8u) {
+            state.local_apics++;
+            if (stored_cpus < ACPI_MAX_CPUS) {
+                cpus[stored_cpus].processor_uid = data[offset + 2u];
+                cpus[stored_cpus].apic_id = data[offset + 3u];
+                cpus[stored_cpus].enabled = (data[offset + 4u] & 1u) != 0u;
+                cpus[stored_cpus].online_capable = (data[offset + 4u] & 2u) != 0u;
+                cpus[stored_cpus].x2apic = 0u;
+                stored_cpus++;
+            }
+        } else if (type == 1u && length >= 12u) {
+            state.ioapics++;
+            if (stored_ioapics < ACPI_MAX_IOAPICS) {
+                ioapics[stored_ioapics].id = data[offset + 2u];
+                ioapics[stored_ioapics].address = read_u32(data + offset + 4u);
+                ioapics[stored_ioapics].global_interrupt_base = read_u32(data + offset + 8u);
+                stored_ioapics++;
+            }
+        } else if (type == 2u && length >= 10u) {
+            state.interrupt_overrides++;
+            if (stored_overrides < ACPI_MAX_OVERRIDES) {
+                overrides[stored_overrides].bus = data[offset + 2u];
+                overrides[stored_overrides].source_irq = data[offset + 3u];
+                overrides[stored_overrides].global_interrupt = read_u32(data + offset + 4u);
+                overrides[stored_overrides].flags = read_u16(data + offset + 8u);
+                stored_overrides++;
+            }
+        }
         else if (type == 3u && length >= 8u) state.nmi_sources++;
         else if (type == 4u && length >= 6u) state.local_apic_nmis++;
         else if (type == 5u && length >= 12u) state.lapic_address = read_u64(data + offset + 4u);
-        else if (type == 9u && length >= 16u) state.local_x2apics++;
+        else if (type == 9u && length >= 16u) {
+            state.local_x2apics++;
+            if (stored_cpus < ACPI_MAX_CPUS) {
+                cpus[stored_cpus].apic_id = read_u32(data + offset + 4u);
+                cpus[stored_cpus].enabled = (data[offset + 8u] & 1u) != 0u;
+                cpus[stored_cpus].online_capable = (data[offset + 8u] & 2u) != 0u;
+                cpus[stored_cpus].processor_uid = read_u32(data + offset + 12u);
+                cpus[stored_cpus].x2apic = 1u;
+                stored_cpus++;
+            }
+        }
         else if (type == 10u && length >= 12u) state.local_apic_nmis++;
         offset += length;
     }
@@ -169,11 +217,19 @@ static int parse_mcfg(const acpi_sdt_header_t *header)
     if (header->length < 44u || ((header->length - 44u) % 16u) != 0u) return -1;
     for (offset = 44u; offset < header->length; offset += 16u) {
         uint64_t base = read_u64(data + offset);
+        uint16_t segment = read_u16(data + offset + 8u);
         uint8_t start_bus = data[offset + 10u];
         uint8_t end_bus = data[offset + 11u];
         if (base == 0u || (base & ((1ull << 20u) - 1u)) != 0u || start_bus > end_bus)
             return -1;
         state.mcfg_segments++;
+        if (stored_mcfg_segments < ACPI_MAX_MCFG_SEGMENTS) {
+            mcfg_segments[stored_mcfg_segments].base_address = base;
+            mcfg_segments[stored_mcfg_segments].segment_group = segment;
+            mcfg_segments[stored_mcfg_segments].start_bus = start_bus;
+            mcfg_segments[stored_mcfg_segments].end_bus = end_bus;
+            stored_mcfg_segments++;
+        }
     }
     return 0;
 }
@@ -224,15 +280,27 @@ static int register_table(uint64_t address)
 {
     const acpi_sdt_header_t *header;
     acpi_status_t before;
+    uint32_t before_cpus;
+    uint32_t before_ioapics;
+    uint32_t before_overrides;
+    uint32_t before_mcfg_segments;
     if (!mapped_range(address, sizeof(acpi_sdt_header_t))) return -1;
     header = (const acpi_sdt_header_t *)(uintptr_t)address;
     if (!mapped_range(address, header->length) ||
         acpi_validate_sdt_blob(header, header->length, 0) != 0) return -1;
     if (state.table_count >= ACPI_MAX_TABLES) return -1;
     before = state;
+    before_cpus = stored_cpus;
+    before_ioapics = stored_ioapics;
+    before_overrides = stored_overrides;
+    before_mcfg_segments = stored_mcfg_segments;
     if (known_signature(header->signature)) {
         if (parse_known(header) != 0) {
             state = before;
+            stored_cpus = before_cpus;
+            stored_ioapics = before_ioapics;
+            stored_overrides = before_overrides;
+            stored_mcfg_segments = before_mcfg_segments;
             return -1;
         }
     } else state.unknown_tables++;
@@ -252,6 +320,14 @@ int acpi_init(uint64_t rsdp_address)
     uint32_t index;
     clear_bytes(&state, sizeof(state));
     clear_bytes(registry, sizeof(registry));
+    clear_bytes(cpus, sizeof(cpus));
+    clear_bytes(ioapics, sizeof(ioapics));
+    clear_bytes(overrides, sizeof(overrides));
+    clear_bytes(mcfg_segments, sizeof(mcfg_segments));
+    stored_cpus = 0u;
+    stored_ioapics = 0u;
+    stored_overrides = 0u;
+    stored_mcfg_segments = 0u;
     uint32_t rsdp_size;
     if (!mapped_range(rsdp_address, RSDP_V1_SIZE)) return -1;
     rsdp = (const acpi_rsdp_t *)(uintptr_t)rsdp_address;
@@ -328,6 +404,54 @@ const acpi_sdt_header_t *acpi_find_table(const char *signature, uint32_t instanc
             instance--;
         }
     }
+    return 0;
+}
+
+uint32_t acpi_cpu_count(void)
+{
+    return stored_cpus;
+}
+
+int acpi_cpu_info(uint32_t index, acpi_cpu_info_t *result)
+{
+    if (result == 0 || index >= stored_cpus) return -1;
+    *result = cpus[index];
+    return 0;
+}
+
+uint32_t acpi_ioapic_count(void)
+{
+    return stored_ioapics;
+}
+
+int acpi_ioapic_info(uint32_t index, acpi_ioapic_info_t *result)
+{
+    if (result == 0 || index >= stored_ioapics) return -1;
+    *result = ioapics[index];
+    return 0;
+}
+
+uint32_t acpi_interrupt_override_count(void)
+{
+    return stored_overrides;
+}
+
+int acpi_interrupt_override_info(uint32_t index, acpi_interrupt_override_t *result)
+{
+    if (result == 0 || index >= stored_overrides) return -1;
+    *result = overrides[index];
+    return 0;
+}
+
+uint32_t acpi_mcfg_segment_count(void)
+{
+    return stored_mcfg_segments;
+}
+
+int acpi_mcfg_segment_info(uint32_t index, acpi_mcfg_segment_t *result)
+{
+    if (result == 0 || index >= stored_mcfg_segments) return -1;
+    *result = mcfg_segments[index];
     return 0;
 }
 

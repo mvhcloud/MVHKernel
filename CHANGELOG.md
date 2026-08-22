@@ -1,5 +1,20 @@
 # MVH Kernel Release Log
 
+## 1.1.6-2
+
+- Added strict SMBIOS 2.x and SMBIOS 3.x entry-point parsing with all required checksums
+- Added bounded SMBIOS structure walking with length and double-NUL string validation
+- Added BIOS vendor/version, system, baseboard, processor-socket and memory-device inventory
+- Added installed-memory and maximum configured memory-speed summaries
+- Added native malformed SMBIOS 2.x/3.x entry and structure tests
+- Added persistent MADT CPU records for xAPIC and x2APIC processors with enabled/online-capable state
+- Added persistent IOAPIC records and IRQ-to-GSI interrupt-source overrides with firmware flags
+- Added persistent MCFG segment records with ECAM base, segment group and bus ranges
+- Added `firmwareinfo`, `smbiosinfo`, `ioapicinfo`, `mcfginfo` and `smpinfo` commands
+- Added `pmmstat`, `timerstat`, `randomstat` and `securityinfo` diagnostic commands
+- Expanded host tests to cover SMBIOS alongside ACPI, BootInfo, storage and CRC32
+- Preserved the inactive APIC/ECAM boundary: firmware topology is indexed but hardware is not enabled yet
+
 ## 1.1.6
 
 - Added complete ACPI 1.0 and 2+ RSDP parsing with signature, legacy checksum and extended checksum validation

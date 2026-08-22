@@ -5,6 +5,10 @@
 
 #define ACPI_MAX_TABLES 64u
 #define ACPI_MAX_TABLE_SIZE (1024u * 1024u)
+#define ACPI_MAX_CPUS 256u
+#define ACPI_MAX_IOAPICS 16u
+#define ACPI_MAX_OVERRIDES 32u
+#define ACPI_MAX_MCFG_SEGMENTS 32u
 
 typedef struct __attribute__((packed)) {
     char signature[4];
@@ -41,6 +45,34 @@ typedef struct {
 } acpi_table_info_t;
 
 typedef struct {
+    uint32_t processor_uid;
+    uint32_t apic_id;
+    uint8_t enabled;
+    uint8_t online_capable;
+    uint8_t x2apic;
+} acpi_cpu_info_t;
+
+typedef struct {
+    uint8_t id;
+    uint32_t address;
+    uint32_t global_interrupt_base;
+} acpi_ioapic_info_t;
+
+typedef struct {
+    uint8_t bus;
+    uint8_t source_irq;
+    uint32_t global_interrupt;
+    uint16_t flags;
+} acpi_interrupt_override_t;
+
+typedef struct {
+    uint64_t base_address;
+    uint16_t segment_group;
+    uint8_t start_bus;
+    uint8_t end_bus;
+} acpi_mcfg_segment_t;
+
+typedef struct {
     uint8_t available;
     uint8_t revision;
     uint8_t uses_xsdt;
@@ -73,6 +105,14 @@ const acpi_status_t *acpi_status(void);
 uint32_t acpi_table_count(void);
 int acpi_table_info(uint32_t index, acpi_table_info_t *result);
 const acpi_sdt_header_t *acpi_find_table(const char *signature, uint32_t instance);
+uint32_t acpi_cpu_count(void);
+int acpi_cpu_info(uint32_t index, acpi_cpu_info_t *result);
+uint32_t acpi_ioapic_count(void);
+int acpi_ioapic_info(uint32_t index, acpi_ioapic_info_t *result);
+uint32_t acpi_interrupt_override_count(void);
+int acpi_interrupt_override_info(uint32_t index, acpi_interrupt_override_t *result);
+uint32_t acpi_mcfg_segment_count(void);
+int acpi_mcfg_segment_info(uint32_t index, acpi_mcfg_segment_t *result);
 int acpi_self_test(void);
 
 #endif

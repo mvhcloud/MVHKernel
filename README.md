@@ -1,4 +1,4 @@
-# MVH Kernel 1.1.6
+# MVH Kernel 1.1.6-2
 
 MVH Kernel is a standalone x86_64 ELF64 kernel. The repository contains kernel code only and does not include a bootloader, installer, userspace or operating-system distribution.
 
@@ -70,6 +70,10 @@ MVH Kernel is a standalone x86_64 ELF64 kernel. The repository contains kernel c
 - Checked XSDT/RSDT traversal with a bounded table registry and duplicate signatures
 - MADT, FADT, HPET, MCFG, SRAT and SLIT metadata parsing
 - Safe registration of DMAR, IVRS, SPCR and TPM2 tables for later subsystems
+- Indexed MADT CPU, IOAPIC and IRQ-override records for future APIC/SMP code
+- Validated PCIe MCFG segment registry with ECAM bases and bus ranges
+- SMBIOS 2.x and 3.x entry-point validation and bounded structure walking
+- BIOS, system, baseboard, processor-socket and memory-device inventory
 - CMOS real-time clock
 - Intel Digital Thermal Sensor support
 - AMD Family 10h-16h northbridge Tctl support
@@ -95,7 +99,8 @@ The built-in shell is intended for kernel diagnostics and development. Important
 - CPU and buses: `cpuinfo`, `features`, `lspci`, `irqstat`, `devices`, `drivers`
 - Memory: `heapinfo`, `pagetable`, `heaptest`, `pagetest`
 - Kernel: `dmesg`, `ps`, `random`, `crc32`, `blockdev`, `bootinfo`, `selftest`, `synctest`, `paniccodes`
-- Firmware: `acpiinfo`, `acpitables`, `madtinfo`, `hpetinfo`
+- Firmware: `firmwareinfo`, `acpiinfo`, `acpitables`, `madtinfo`, `ioapicinfo`, `mcfginfo`, `hpetinfo`, `smbiosinfo`, `smpinfo`
+- Statistics: `pmmstat`, `timerstat`, `randomstat`, `securityinfo`
 - RAMFS: `ls`, `cd`, `pwd`, `mkdir`, `touch`, `write`, `append`, `cat`, `rm`, `mount`, `df`
 - Fault injection: `faulttest`, `faulttest page`
 
@@ -128,6 +133,7 @@ make host-test
 | Boot | No output or an immediate reset | The loader did not enter x86_64 Long Mode, identity-map the first GiB or call `_kernel64_start` with BootInfo V2 or the legacy memory argument |
 | BootInfo | Panic reports `invalid boot handoff data` | The BootInfo V2 marker, magic, version, size, flags, pointer ranges or reserved fields violate the documented contract |
 | ACPI | `acpiinfo` reports unavailable or rejected | RSDP/root checksums, lengths, signatures, entry layout or identity-mapped pointer ranges are invalid |
+| SMBIOS | `smbiosinfo` reports unavailable or rejected | Entry-point checksums, table bounds, structure lengths or string termination are invalid |
 | Memory initialization | Panic during PMM, VMM or heap initialization | Reported memory is smaller than the kernel image and reserved regions, or the loader mapping does not cover allocated pages |
 | Page fault during startup | Panic code with CR2 and page-fault flags | A kernel section or heap page is outside the identity-mapped range, or page permissions conflict with the accessed address |
 | Temperature | `unavailable` is reported | The CPU model is unsupported, required MSRs are unavailable, or the emulator exposes no thermal sensor |
@@ -151,7 +157,7 @@ Panics are written to both VGA and serial output when those devices are availabl
 - Maximum managed physical memory is 1 GiB
 - Volatile RAMFS only
 - No userspace ELF loader or syscall ABI
-- ACPI metadata is parsed, but Local APIC, IOAPIC, HPET and PCIe ECAM hardware activation is not implemented yet
+- ACPI and SMBIOS metadata is parsed, but Local APIC, IOAPIC, HPET and PCIe ECAM hardware activation is not implemented yet
 - No IOAPIC, Local APIC activation or SMP startup
 - No AHCI, NVMe, VirtIO, USB or persistent filesystem driver
 - No networking stack
@@ -170,9 +176,9 @@ Panics are written to both VGA and serial output when those devices are availabl
 
 ## Release-channel transition
 
-We apologize that this transitional release is still provided through GitHub. A new website is being prepared as the future home for MVH Kernel downloads and updates. Version 1.1.6 remains here until that release channel is ready.
+We apologize that this transitional release is still provided through GitHub. A new website is being prepared as the future home for MVH Kernel downloads and updates. Version 1.1.6-2 remains here until that release channel is ready.
 
-Loader authors should read [`docs/BOOTINFO_V2.md`](docs/BOOTINFO_V2.md). ACPI behavior is documented in [`docs/ACPI.md`](docs/ACPI.md), and release notes are in [`docs/RELEASE_1.1.6.md`](docs/RELEASE_1.1.6.md).
+Loader authors should read [`docs/BOOTINFO_V2.md`](docs/BOOTINFO_V2.md). Firmware behavior is documented in [`docs/ACPI.md`](docs/ACPI.md) and [`docs/SMBIOS.md`](docs/SMBIOS.md); release notes are in [`docs/RELEASE_1.1.6-2.md`](docs/RELEASE_1.1.6-2.md).
 
 ## License
 

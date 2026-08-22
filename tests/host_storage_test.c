@@ -4,6 +4,7 @@
 #include "mvh/block.h"
 #include "mvh/bootinfo.h"
 #include "mvh/crc32.h"
+#include "mvh/smbios.h"
 
 static int rejected_read(void *context, uint64_t lba, uint32_t count, void *buffer)
 {
@@ -28,6 +29,7 @@ int main(void)
         bootinfo_current()->memory_kib != 65536u) return 8;
     if (bootinfo_capture(1024u, 0u) == 0) return 9;
     if (acpi_self_test() != 0) return 10;
-    puts("host storage, CRC32, BootInfo and ACPI tests passed");
+    if (smbios_self_test() != 0) return 11;
+    puts("host storage, CRC32, BootInfo, ACPI and SMBIOS tests passed");
     return 0;
 }

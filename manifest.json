@@ -1,6 +1,6 @@
 {
   "name": "MVH Kernel",
-  "version": "1.1.6",
+  "version": "1.1.6-2",
   "website": "https://MVHCLOUD.com",
   "architecture": "x86_64",
   "format": "ELF64",
@@ -31,6 +31,7 @@
     "x86-exception-dispatch",
     "bootinfo-v2-handoff",
     "acpi-rsdp-xsdt-rsdt",
+    "smbios-2-and-3-platform-metadata",
     "pit-8254",
     "ramfs",
     "vfs-root",
@@ -64,7 +65,10 @@
     "central-kernel-feature-config",
     "versioned-kernel-and-boot-abi",
     "validated-acpi-table-registry",
-    "madt-fadt-hpet-mcfg-srat-slit-metadata"
+    "madt-fadt-hpet-mcfg-srat-slit-metadata",
+    "firmware-cpu-ioapic-and-irq-routing-registry",
+    "pcie-mcfg-segment-registry",
+    "firmware-memory-and-security-diagnostics"
   ],
   "memory": {
     "page_size": 4096,

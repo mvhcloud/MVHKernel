@@ -13,7 +13,7 @@ MVH Kernel 1.1.6 consumes the ACPI RSDP address supplied through BootInfo V2. Th
 
 ## Parsed metadata
 
-MADT parsing records the LAPIC base and flags plus Local APIC, x2APIC, IOAPIC, interrupt-source override and NMI entry counts. FADT parsing records the PM timer and, when present, the reset GAS/value. HPET parsing records its GAS address. MCFG accepts aligned ECAM bases and ordered bus ranges. SRAT counts CPU and memory affinities. SLIT validates the complete square distance matrix. DMAR, IVRS, SPCR and TPM2 are checksum-validated and registered for future consumers.
+MADT parsing records the LAPIC base and flags plus Local APIC, x2APIC, IOAPIC, interrupt-source override and NMI entries. CPU UID/APIC IDs and enabled state, IOAPIC address/GSI bases and complete IRQ override flags are retained through bounded query APIs. FADT parsing records the PM timer and, when present, the reset GAS/value. HPET parsing records its GAS address. MCFG retains aligned ECAM bases, segment groups and ordered bus ranges. SRAT counts CPU and memory affinities. SLIT validates the complete square distance matrix. DMAR, IVRS, SPCR and TPM2 are checksum-validated and registered for future consumers.
 
 The parser does not activate hardware. In 1.1.6, Local APIC, IOAPIC, HPET, PCIe ECAM, IOMMU, NUMA and ACPI shutdown/reboot remain disabled. This separation keeps firmware discovery testable before interrupt routing and MMIO policy change.
 
@@ -22,6 +22,9 @@ The parser does not activate hardware. In 1.1.6, Local APIC, IOAPIC, HPET, PCIe 
 - `acpiinfo` summarizes the root path, registry and parsed firmware metadata.
 - `acpitables` lists every accepted table with address, length and revision.
 - `madtinfo` reports interrupt-controller topology.
+- `ioapicinfo` reports IOAPIC resources and IRQ-to-GSI overrides.
+- `mcfginfo` reports every validated PCIe ECAM segment.
+- `smpinfo` reports firmware CPUs while clearly separating the running BSP from inactive APs.
 - `hpetinfo` reports the firmware MMIO address and clearly labels HPET as inactive.
 - `selftest` validates correct and malformed RSDP/SDT samples.
 - `make host-test` runs the same pure parser checks without a VM.
