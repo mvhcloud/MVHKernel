@@ -42,11 +42,6 @@ static void clear_bytes(void *data, uint32_t length)
     for (index = 0u; index < length; index++) bytes[index] = 0u;
 }
 
-static uint16_t read_u16(const uint8_t *data)
-{
-    return (uint16_t)data[0] | ((uint16_t)data[1] << 8u);
-}
-
 static uint32_t read_u32(const uint8_t *data)
 {
     return (uint32_t)data[0] | ((uint32_t)data[1] << 8u) |
