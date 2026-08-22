@@ -1,6 +1,6 @@
 {
   "name": "MVH Kernel",
-  "version": "1.1.4",
+  "version": "1.1.5",
   "website": "https://MVHCLOUD.com",
   "architecture": "x86_64",
   "format": "ELF64",
@@ -8,7 +8,7 @@
   "requires": [
     "x86_64-long-mode",
     "identity-mapped-first-gib",
-    "boot-memory-size-kib"
+    "bootinfo-v2-or-legacy-memory-size-kib"
   ],
   "license": "MIT",
   "release_log": "CHANGELOG.md",
@@ -29,6 +29,7 @@
     "pci-config-bars",
     "x86-idt-pic",
     "x86-exception-dispatch",
+    "bootinfo-v2-handoff",
     "pit-8254",
     "ramfs",
     "vfs-root",
@@ -56,7 +57,11 @@
     "mbr-gpt-partition-probe",
     "crc32-integrity-core",
     "validated-gpt-header-and-entry-array",
-    "calloc-and-realloc-heap-api"
+    "calloc-and-realloc-heap-api",
+    "validated-bootinfo-v2",
+    "firmware-memory-framebuffer-and-random-seed-handoff",
+    "central-kernel-feature-config",
+    "versioned-kernel-and-boot-abi"
   ],
   "memory": {
     "page_size": 4096,
@@ -75,15 +80,16 @@
     "volatile-root-filesystem",
     "no-userspace-elf-loader",
     "legacy-pic-active-apic-detection-only",
-    "no-acpi-boot-table-handoff",
+    "acpi-handoff-only-no-table-parser",
     "cpu-temperature-limited-to-supported-intel-dts-and-amd-families",
     "no-compiler-stack-protector",
     "no-network-usb-storage-stack",
     "random-output-not-ready-below-256-estimated-entropy-bits"
   ],
   "compatibility": {
-    "abi": 1,
+    "abi": 2,
+    "boot_abi": 2,
     "release_series": "1.1",
-    "backward_compatible_with": ["1.1", "1.1.1", "1.1.2", "1.1.3"]
+    "backward_compatible_with": ["1.1", "1.1.1", "1.1.2", "1.1.3", "1.1.4"]
   }
 }

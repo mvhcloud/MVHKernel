@@ -12,15 +12,16 @@ _kernel64_start:
     mov %cr4, %rax
     or $0x600, %rax
     mov %rax, %cr4
-    mov %edi, %r8d
-    mov %esi, %r9d
+    mov %rdi, %r8
+    mov %rsi, %r9
     lea __bss_start(%rip), %rdi
     lea __bss_end(%rip), %rcx
     sub %rdi, %rcx
     xor %eax, %eax
     rep stosb
-    mov %r8d, %edi
-    mov %r9d, %esi
+    mov %r8, %rdi
+    mov %r9, %rsi
+    and $-16, %rsp
     call kernel_main
 
 halt64:

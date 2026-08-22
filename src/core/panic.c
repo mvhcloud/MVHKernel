@@ -5,6 +5,7 @@
 #include "mvh/panic.h"
 #include "mvh/serial.h"
 #include "mvh/vga.h"
+#include "mvh/version.h"
 
 static const char *exception_names[32] = {
     "Divide Error", "Debug", "Non-maskable Interrupt", "Breakpoint",
@@ -141,6 +142,7 @@ void kernel_panic(const char *message)
     panic_write("\n================ MVH KERNEL PANIC ================\n");
     vga_set_color(0x0Fu);
     panic_write("Panic code: MVH-KERNEL-0001\n");
+    panic_write("Kernel: " MVH_KERNEL_VERSION "  ABI: " MVH_KERNEL_ABI_STRING "  Build: " MVH_KERNEL_BUILD_ID "\n");
     panic_write(message);
     panic_write("\nSystem halted safely.\n");
     panic_halt();
@@ -155,6 +157,7 @@ void kernel_assert_fail(const char *expression, const char *file, unsigned int l
     panic_write("\n================ MVH KERNEL PANIC ================\n");
     vga_set_color(0x0Fu);
     panic_write("Panic code: MVH-ASSERT-0001\nAssertion: ");
+    panic_write("Kernel: " MVH_KERNEL_VERSION "  ABI: " MVH_KERNEL_ABI_STRING "  Build: " MVH_KERNEL_BUILD_ID "\n");
     panic_write(expression);
     panic_write("\nLocation: ");
     panic_write(file);
@@ -187,6 +190,7 @@ void kernel_panic_exception(const exception_frame_t *frame)
     panic_write(name);
     panic_write("\nPanic code: MVH-EX-");
     panic_hex8((uint8_t)frame->vector);
+    panic_write("\nKernel: " MVH_KERNEL_VERSION "  ABI: " MVH_KERNEL_ABI_STRING "  Build: " MVH_KERNEL_BUILD_ID);
     panic_write("\nVector: ");
     panic_hex(frame->vector);
     panic_write("  Error: ");

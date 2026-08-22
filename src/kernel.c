@@ -1,7 +1,9 @@
 #include <stdint.h>
 #include "mvh/assert.h"
 #include "mvh/block.h"
+#include "mvh/bootinfo.h"
 #include "mvh/cpu.h"
+#include "mvh/config.h"
 #include "mvh/crc32.h"
 #include "mvh/device.h"
 #include "mvh/fs.h"
@@ -21,6 +23,9 @@
 #include "mvh/version.h"
 
 static uint8_t language;
+
+_Static_assert(MVH_CONFIG_ARCH_X86_64 == 1, "MVH Kernel requires the x86_64 config");
+_Static_assert(MVH_CONFIG_BOOTINFO_V2 == 1, "BootInfo V2 must be enabled for ABI 2");
 
 extern char __kernel_end;
 
@@ -398,6 +403,54 @@ static void show_about(void)
                             "Ein eigenstaendiger Kernel fuer Low-Level-Experimente.\nBootloader und OS-Distribution sind nicht enthalten.\n",
                             "Un kernel independiente para experimentos de bajo nivel.\nNo incluye cargador ni distribucion de sistema.\n",
                             "Un noyau autonome pour les experimentations bas niveau.\nAucun chargeur ni distribution systeme n'est inclus.\n"));
+}
+
+static void command_bootinfo(void)
+{
+    const mvh_bootinfo_snapshot_t *info = bootinfo_current();
+    console_colored("Boot handoff\n", 0x0Eu);
+    console_write("  Contract       : ");
+    if (info->versioned != 0u) {
+        console_write("BootInfo V");
+        console_number(info->version);
+        console_write("\n  Structure size : ");
+        console_number(info->size);
+        console_write(" bytes\n  Flags          : ");
+        console_hex64(info->flags);
+    } else console_write("legacy memory-size argument");
+    console_write("\n  Memory         : ");
+    console_number(info->memory_kib);
+    console_write(" KiB\n  Memory map     : ");
+    if ((info->flags & MVH_BOOTINFO_FLAG_MEMORY_MAP) != 0u) {
+        console_number(info->memory_map_entries);
+        console_write(" entries at ");
+        console_hex64(info->memory_map_address);
+    } else console_write("not supplied");
+    console_write("\n  ACPI RSDP      : ");
+    if ((info->flags & MVH_BOOTINFO_FLAG_ACPI_RSDP) != 0u) console_hex64(info->acpi_rsdp_address);
+    else console_write("not supplied");
+    console_write("\n  SMBIOS         : ");
+    if ((info->flags & MVH_BOOTINFO_FLAG_SMBIOS) != 0u) console_hex64(info->smbios_address);
+    else console_write("not supplied");
+    console_write("\n  Framebuffer    : ");
+    if ((info->flags & MVH_BOOTINFO_FLAG_FRAMEBUFFER) != 0u) {
+        console_number(info->framebuffer.width);
+        console_write("x");
+        console_number(info->framebuffer.height);
+        console_write("x");
+        console_number(info->framebuffer.bits_per_pixel);
+    } else console_write("not supplied");
+    console_write("\n  Random seed    : ");
+    if ((info->flags & MVH_BOOTINFO_FLAG_RANDOM_SEED) != 0u) {
+        console_number(info->random_seed_size);
+        console_write(" bytes");
+    } else console_write("not supplied");
+    console_write("\n  Command line   : ");
+    if ((info->flags & MVH_BOOTINFO_FLAG_COMMAND_LINE) != 0u) {
+        console_number(info->command_line_size);
+        console_write(" bytes");
+    } else console_write("not supplied");
+    console_write("\n");
 }
 
 static void show_statistics(void)
@@ -911,6 +964,7 @@ static void command_selftest(void)
     failures += selftest_line("kernel heap", heap_self_test()) != 0;
     failures += selftest_line("atomics and locks", sync_self_test()) != 0;
     failures += selftest_line("CRC32 core", crc32_self_test()) != 0;
+    failures += selftest_line("BootInfo V2 validator", bootinfo_self_test()) != 0;
     failures += selftest_line("entropy generator", random_self_test()) != 0;
     failures += selftest_line("block and partition layer", block_self_test()) != 0;
     failures += selftest_line("heap structure", heap_validate()) != 0;
@@ -975,7 +1029,7 @@ static void run_command(const char *command)
             "  help         Mostrar esta lista\n  about        Mostrar informacion del sistema\n  statics      Abrir monitor de CPU y RAM\n  language     Mostrar o cambiar idioma\n  clear        Limpiar la pantalla\n  reboot       Reiniciar el sistema\n",
             "  help         Afficher cette liste\n  about        Afficher les informations systeme\n  statics      Ouvrir le moniteur CPU et RAM\n  language     Afficher ou changer la langue\n  clear        Effacer l'ecran\n  reboot       Redemarrer le systeme\n"));
         console_write("\nFilesystem: ls dir cd pwd mkdir touch write append cat type open rm rmdir mount df\n");
-        console_write("System:     date uptime ticks sleep meminfo free devices lspci blockdev drivers features\n");
+        console_write("System:     date uptime ticks sleep meminfo free devices lspci blockdev drivers features bootinfo\n");
         console_write("Kernel:     ps dmesg random crc32 selftest heaptest pagetest synctest faulttest\n");
         console_write("Debug:      cpuinfo heapinfo irqstat pagetable paniccodes\n");
         console_write("Info:       uname version hostname whoami\n");
@@ -1068,6 +1122,8 @@ static void run_command(const char *command)
         command_heapinfo();
     } else if (text_equals(command, "cpuinfo")) {
         command_cpuinfo();
+    } else if (text_equals(command, "bootinfo")) {
+        command_bootinfo();
     } else if (text_equals(command, "irqstat")) {
         command_irqstat();
     } else if (text_equals(command, "pagetable")) {
@@ -1158,14 +1214,26 @@ void kernel_main(uint64_t memory_kib, uint64_t boot_data)
     char command[64];
     unsigned int length = 0;
     char input;
-    (void)boot_data;
+    int bootinfo_status = bootinfo_capture(memory_kib, boot_data);
     klog_init();
     hal_init();
+    if (bootinfo_status != 0) {
+        kernel_panic("invalid boot handoff data");
+    }
+    memory_kib = bootinfo_current()->memory_kib;
     cpu_init();
     random_init();
+    if ((bootinfo_current()->flags & MVH_BOOTINFO_FLAG_RANDOM_SEED) != 0u) {
+        uint32_t estimated_bits = bootinfo_current()->random_seed_size * 4u;
+        if (estimated_bits > 128u) estimated_bits = 128u;
+        entropy_add((const void *)(uintptr_t)bootinfo_current()->random_seed_address,
+                    bootinfo_current()->random_seed_size, estimated_bits);
+    }
     block_init();
     ASSERT(hal_timer_frequency() != 0u);
     klog_set_console(1u);
+    klog_write("INFO", MVH_KERNEL_NAME " " MVH_KERNEL_VERSION " build " MVH_KERNEL_BUILD_ID);
+    klog_write("INFO", "kernel ABI " MVH_KERNEL_ABI_STRING "; boot ABI 2 with legacy fallback");
     klog_write("INFO", "hardware abstraction layer initialized");
     pmm_init(memory_kib, (uintptr_t)&__kernel_end);
     klog_write("INFO", "physical memory manager initialized");

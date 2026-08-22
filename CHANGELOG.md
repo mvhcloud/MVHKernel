@@ -1,5 +1,22 @@
 # MVH Kernel Release Log
 
+## 1.1.5
+
+- Added a strictly validated, versioned BootInfo V2 handoff for memory maps, ACPI RSDP, SMBIOS, framebuffer metadata, random seeds and kernel command lines
+- Kept the legacy memory-size calling convention as an explicit compatibility fallback
+- Added the `bootinfo` diagnostic command and BootInfo validator self-test
+- Extended native host tests with BootInfo validation and legacy-handoff coverage
+- Added a central kernel feature-configuration header for compiled subsystem policy
+- Versioned the kernel and boot ABI at revision 2 and added a stable release build ID
+- Added kernel version, ABI and build identity to boot logs and every panic path
+- Hardened the 64-bit entry path by aligning the loader stack before entering C
+- Added complete loader-facing BootInfo V2 and 1.1.5 release documentation
+- Removed the downloaded GitHub Actions workflow and GitHub-specific build wording from the source package
+
+### Transition notice
+
+We apologize that this transitional release is still distributed through GitHub. A new website is being prepared as the future home for MVH Kernel downloads and updates. Version 1.1.5 remains available here until that release channel is ready.
+
 ## 1.1.4
 
 - Added a reusable CRC32 core with standard-vector and incremental-update self-tests
