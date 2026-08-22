@@ -1,4 +1,5 @@
 #include <stdint.h>
+#include "mvh/acpi.h"
 #include "mvh/assert.h"
 #include "mvh/block.h"
 #include "mvh/bootinfo.h"
@@ -451,6 +452,96 @@ static void command_bootinfo(void)
         console_write(" bytes");
     } else console_write("not supplied");
     console_write("\n");
+}
+
+static void command_acpiinfo(void)
+{
+    const acpi_status_t *status = acpi_status();
+    console_colored("ACPI firmware information\n", 0x0Eu);
+    if (status->available == 0u) {
+        console_write("  ACPI           : unavailable or rejected\n");
+        return;
+    }
+    console_write("  Revision       : ");
+    console_number(status->revision);
+    console_write("\n  Root table     : ");
+    console_write(status->uses_xsdt != 0u ? "XSDT" : "RSDT");
+    console_write("\n  Tables         : ");
+    console_number(status->table_count);
+    console_write("\n  Rejected       : ");
+    console_number(status->rejected_tables);
+    console_write("\n  Unknown        : ");
+    console_number(status->unknown_tables);
+    console_write("\n  MCFG segments  : ");
+    console_number(status->mcfg_segments);
+    console_write("\n  SRAT CPU/memory: ");
+    console_number(status->srat_cpu_affinities);
+    console_write("/");
+    console_number(status->srat_memory_affinities);
+    console_write("\n  SLIT localities: ");
+    console_number(status->slit_localities);
+    console_write("\n  PM timer port  : ");
+    console_hex32(status->pm_timer_port);
+    console_write("\n");
+}
+
+static void command_acpitables(void)
+{
+    acpi_table_info_t table;
+    uint32_t index;
+    if (acpi_status()->available == 0u) {
+        console_write("ACPI is unavailable\n");
+        return;
+    }
+    console_colored("ACPI table registry\n", 0x0Eu);
+    for (index = 0u; index < acpi_table_count(); index++) {
+        if (acpi_table_info(index, &table) != 0) continue;
+        console_write("  ");
+        console_write(table.signature);
+        console_write("  address=");
+        console_hex64(table.address);
+        console_write(" length=");
+        console_number(table.length);
+        console_write(" revision=");
+        console_number(table.revision);
+        console_write("\n");
+    }
+}
+
+static void command_madtinfo(void)
+{
+    const acpi_status_t *status = acpi_status();
+    if (acpi_find_table("APIC", 0u) == 0) {
+        console_write("MADT is unavailable\n");
+        return;
+    }
+    console_colored("MADT interrupt topology\n", 0x0Eu);
+    console_write("  LAPIC address  : ");
+    console_hex64(status->lapic_address);
+    console_write("\n  LAPIC/x2APIC   : ");
+    console_number(status->local_apics);
+    console_write("/");
+    console_number(status->local_x2apics);
+    console_write("\n  IOAPICs        : ");
+    console_number(status->ioapics);
+    console_write("\n  IRQ overrides  : ");
+    console_number(status->interrupt_overrides);
+    console_write("\n  NMI entries    : ");
+    console_number(status->nmi_sources + status->local_apic_nmis);
+    console_write("\n");
+}
+
+static void command_hpetinfo(void)
+{
+    const acpi_status_t *status = acpi_status();
+    if (acpi_find_table("HPET", 0u) == 0) {
+        console_write("HPET table is unavailable\n");
+        return;
+    }
+    console_colored("HPET firmware table\n", 0x0Eu);
+    console_write("  MMIO address   : ");
+    console_hex64(status->hpet_address);
+    console_write("\n  Runtime state  : parsed, not activated\n");
 }
 
 static void show_statistics(void)
@@ -965,6 +1056,7 @@ static void command_selftest(void)
     failures += selftest_line("atomics and locks", sync_self_test()) != 0;
     failures += selftest_line("CRC32 core", crc32_self_test()) != 0;
     failures += selftest_line("BootInfo V2 validator", bootinfo_self_test()) != 0;
+    failures += selftest_line("ACPI parser", acpi_self_test()) != 0;
     failures += selftest_line("entropy generator", random_self_test()) != 0;
     failures += selftest_line("block and partition layer", block_self_test()) != 0;
     failures += selftest_line("heap structure", heap_validate()) != 0;
@@ -1031,7 +1123,7 @@ static void run_command(const char *command)
         console_write("\nFilesystem: ls dir cd pwd mkdir touch write append cat type open rm rmdir mount df\n");
         console_write("System:     date uptime ticks sleep meminfo free devices lspci blockdev drivers features bootinfo\n");
         console_write("Kernel:     ps dmesg random crc32 selftest heaptest pagetest synctest faulttest\n");
-        console_write("Debug:      cpuinfo heapinfo irqstat pagetable paniccodes\n");
+        console_write("Debug:      cpuinfo acpiinfo acpitables madtinfo hpetinfo heapinfo irqstat pagetable paniccodes\n");
         console_write("Info:       uname version hostname whoami\n");
         console_write("Other:      echo clear cls reboot\n");
         console_write("Use '<command> help' is not required; arguments follow the command.\n");
@@ -1124,6 +1216,14 @@ static void run_command(const char *command)
         command_cpuinfo();
     } else if (text_equals(command, "bootinfo")) {
         command_bootinfo();
+    } else if (text_equals(command, "acpiinfo")) {
+        command_acpiinfo();
+    } else if (text_equals(command, "acpitables")) {
+        command_acpitables();
+    } else if (text_equals(command, "madtinfo")) {
+        command_madtinfo();
+    } else if (text_equals(command, "hpetinfo")) {
+        command_hpetinfo();
     } else if (text_equals(command, "irqstat")) {
         command_irqstat();
     } else if (text_equals(command, "pagetable")) {
@@ -1234,6 +1334,11 @@ void kernel_main(uint64_t memory_kib, uint64_t boot_data)
     klog_set_console(1u);
     klog_write("INFO", MVH_KERNEL_NAME " " MVH_KERNEL_VERSION " build " MVH_KERNEL_BUILD_ID);
     klog_write("INFO", "kernel ABI " MVH_KERNEL_ABI_STRING "; boot ABI 2 with legacy fallback");
+    if ((bootinfo_current()->flags & MVH_BOOTINFO_FLAG_ACPI_RSDP) != 0u) {
+        if (acpi_init(bootinfo_current()->acpi_rsdp_address) == 0)
+            klog_write("INFO", "ACPI tables validated and registered");
+        else klog_write("WARN", "ACPI handoff was rejected; legacy hardware path remains active");
+    } else klog_write("INFO", "ACPI handoff unavailable; legacy hardware path remains active");
     klog_write("INFO", "hardware abstraction layer initialized");
     pmm_init(memory_kib, (uintptr_t)&__kernel_end);
     klog_write("INFO", "physical memory manager initialized");

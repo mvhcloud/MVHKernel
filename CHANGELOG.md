@@ -1,5 +1,24 @@
 # MVH Kernel Release Log
 
+## 1.1.6
+
+- Added complete ACPI 1.0 and 2+ RSDP parsing with signature, legacy checksum and extended checksum validation
+- Added preferred XSDT traversal with validated RSDT fallback
+- Added centralized SDT headers, bounded length/checksum validation and a 64-entry table registry
+- Added signature lookup with duplicate-table support, safe unknown-table retention and malformed-table rejection
+- Added MADT parsing for Local APIC, x2APIC, IOAPIC, interrupt overrides, NMIs and LAPIC address overrides
+- Added FADT reset-register and PM-timer metadata parsing
+- Added HPET MMIO metadata, validated MCFG segments, SRAT affinities and SLIT distance-matrix parsing
+- Registered valid DMAR, IVRS, SPCR and TPM2 tables for later consumers
+- Changed the BootInfo ACPI pointer from display-only metadata into an initialized kernel subsystem
+- Added `acpiinfo`, `acpitables`, `madtinfo` and `hpetinfo` diagnostic commands
+- Added checksum, malformed RSDP and malformed SDT self-tests plus native host coverage
+- Kept PIC/PIT active and APIC/HPET/ECAM activation disabled until their dedicated implementation is complete
+
+### Scope note
+
+The supplied roadmap spans many major kernel releases. Version 1.1.6 completes the ACPI discovery and metadata layer; APIC, SMP, scheduler, storage drivers, USB, networking, security and multiarch remain tracked follow-up work rather than being represented by unsafe placeholders.
+
 ## 1.1.5
 
 - Added a strictly validated, versioned BootInfo V2 handoff for memory maps, ACPI RSDP, SMBIOS, framebuffer metadata, random seeds and kernel command lines
