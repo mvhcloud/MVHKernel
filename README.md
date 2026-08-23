@@ -18,7 +18,7 @@ MVH Kernel is a standalone x86_64 ELF64 kernel, not an operating-system distribu
 - 50 bounded utility APIs for memory, strings, ASCII and integer/bit operations
 - Interactive diagnostic shell, `utilinfo` inventory and combined runtime self-tests
 
-The 50 utility APIs are declared in [`include/mvh/util.h`](include/mvh/util.h) and covered by native tests. Detailed firmware contracts remain in [`docs/`](docs/).
+The 50 utility APIs are declared in [`include/mvh/util.h`](include/mvh/util.h) and covered by native tests. Full documentation is maintained at [kernel.mvhcloud.com](https://kernel.mvhcloud.com/).
 
 ## Build and test
 
@@ -29,7 +29,7 @@ make host-test
 
 Output: `build/kernel.elf`. The native suite does not require QEMU.
 
-MVHFS becomes durable when a writable 512-byte block driver is registered. Use `pmkfs`, `pmount`, `pls`, `pwrite`, `pcat` and `prm` from the kernel shell. Formatting requires at least 522 sectors and supports 32 files of up to 4096 bytes each. The recovery design is documented in [`docs/MVHFS.md`](docs/MVHFS.md).
+MVHFS becomes durable when a writable 512-byte block driver is registered. Use `pmkfs`, `pmount`, `pls`, `pwrite`, `pcat` and `prm` from the kernel shell. Formatting requires at least 522 sectors and supports 32 files of up to 4096 bytes each.
 
 ## Common failures
 
