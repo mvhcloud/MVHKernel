@@ -2,6 +2,10 @@
 
 ## 1.1.7 Daily
 
+- Added MVHFS, a small persistent filesystem with dual CRC32 superblocks, duplicated directories and copy-on-write file slots
+- Added format, mount, create, overwrite, read, list and remove operations for writable 512-byte block devices
+- Added `pmkfs`, `pmount`, `pls`, `pwrite`, `pcat` and `prm` persistent shell commands
+- Added native reboot-remount, interrupted-commit, superblock-fallback and data-corruption recovery tests
 - Added 50 exported, bounded kernel utility APIs for memory, strings, ASCII, integer parsing, alignment, overflow checks, rotations, population counts and byte swapping
 - Added native positive, boundary, overlap, truncation and overflow coverage for all 50 utility APIs
 - Enabled GCC `-fstack-protector-strong` with a freestanding global guard and panic handler

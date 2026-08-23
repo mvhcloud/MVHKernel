@@ -71,7 +71,10 @@
     "firmware-memory-and-security-diagnostics",
     "fifty-bounded-kernel-utility-apis",
     "compiler-stack-protector-strong",
-    "native-utility-api-coverage"
+    "native-utility-api-coverage",
+    "mvhfs-copy-on-write-persistent-filesystem",
+    "mvhfs-dual-superblock-recovery",
+    "mvhfs-file-and-metadata-crc32"
   ],
   "memory": {
     "page_size": 4096,

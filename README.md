@@ -12,6 +12,7 @@ MVH Kernel is a standalone x86_64 ELF64 kernel, not an operating-system distribu
 - VGA, UART, PS/2 keyboard, RTC, CPUID, PCI and CPU-temperature diagnostics
 - ChaCha20 entropy pool with RDRAND/RDSEED input
 - VFS with volatile RAMFS
+- MVHFS persistent file layer with dual superblocks, copy-on-write metadata and CRC32 data verification
 - Block registry plus validated MBR/GPT probing
 - CRC32 integrity core
 - 50 bounded utility APIs for memory, strings, ASCII and integer/bit operations
@@ -27,6 +28,8 @@ make host-test
 ```
 
 Output: `build/kernel.elf`. The native suite does not require QEMU.
+
+MVHFS becomes durable when a writable 512-byte block driver is registered. Use `pmkfs`, `pmount`, `pls`, `pwrite`, `pcat` and `prm` from the kernel shell. Formatting requires at least 522 sectors and supports 32 files of up to 4096 bytes each. The recovery design is documented in [`docs/MVHFS.md`](docs/MVHFS.md).
 
 ## Common failures
 
@@ -45,7 +48,7 @@ Output: `build/kernel.elf`. The native suite does not require QEMU.
 - Ring 3 execution, syscall ABI and userspace ELF loading
 - Local APIC, IOAPIC, HPET and PCIe ECAM activation
 - Memory management beyond the loader's identity-mapped first GiB
-- Persistent storage, AHCI, NVMe, VirtIO, USB and filesystem drivers
+- AHCI, NVMe, VirtIO and USB block drivers; MVHFS is ready but requires one of these hardware backends for real-machine persistence
 - Network-device drivers and a networking stack
 
 These items remain documented until complete initialization, rollback and hardware validation exist.

@@ -2,6 +2,12 @@
 
 Version 1.1.7 adds a reusable utility layer and enables compiler stack protection while keeping the kernel-only architecture unchanged.
 
+## Persistent MVHFS layer
+
+MVHFS provides a compact persistent store for writable 512-byte block devices. It uses alternating superblocks, duplicated directory tables and two copy-on-write data slots per file. CRC32 protects superblocks, directory snapshots and file contents. An interrupted metadata commit falls back to the last valid generation on the next mount.
+
+The initial format supports 32 root-level files of up to 4096 bytes each and requires 522 sectors. Kernel shell commands are `pmkfs`, `pmount`, `pls`, `pwrite`, `pcat` and `prm`. Real-machine persistence still depends on a registered AHCI, NVMe, VirtIO or other writable block driver.
+
 ## 50 utility APIs
 
 ### Memory (5)
@@ -27,7 +33,7 @@ Kernel C modules now compile with GCC strong stack protection and a freestanding
 ## Validation
 
 - Strict freestanding x86_64 build with warnings as errors
-- Native utility, firmware, BootInfo, CRC32 and storage tests
+- Native utility, firmware, BootInfo, CRC32, storage and MVHFS recovery tests
 - ELF64/x86-64 validation
 - CodeQL analysis
 

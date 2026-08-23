@@ -3,10 +3,11 @@ LD := ld
 
 BUILD := build
 CFLAGS := -m64 -mno-red-zone -std=c11 -ffreestanding -fno-pie -fstack-protector-strong -mstack-protector-guard=global -fno-builtin -fno-unwind-tables -fno-asynchronous-unwind-tables -fno-omit-frame-pointer -Wall -Wextra -Werror -O2 -MMD -MP -Iinclude
-OBJECTS := $(BUILD)/entry64.o $(BUILD)/interrupt64.o $(BUILD)/interrupt.o $(BUILD)/hal.o $(BUILD)/bootinfo.o $(BUILD)/acpi.o $(BUILD)/smbios.o $(BUILD)/log.o $(BUILD)/panic.o $(BUILD)/stack_guard.o $(BUILD)/util.o $(BUILD)/crc32.o $(BUILD)/random.o $(BUILD)/sync.o $(BUILD)/device.o $(BUILD)/pmm.o $(BUILD)/vmm.o $(BUILD)/heap.o $(BUILD)/task.o $(BUILD)/kernel.o $(BUILD)/vga.o $(BUILD)/serial.o $(BUILD)/keyboard.o $(BUILD)/cpu.o $(BUILD)/rtc.o $(BUILD)/pci.o $(BUILD)/timer.o $(BUILD)/ramfs.o $(BUILD)/vfs.o $(BUILD)/block.o
+OBJECTS := $(BUILD)/entry64.o $(BUILD)/interrupt64.o $(BUILD)/interrupt.o $(BUILD)/hal.o $(BUILD)/bootinfo.o $(BUILD)/acpi.o $(BUILD)/smbios.o $(BUILD)/log.o $(BUILD)/panic.o $(BUILD)/stack_guard.o $(BUILD)/util.o $(BUILD)/crc32.o $(BUILD)/random.o $(BUILD)/sync.o $(BUILD)/device.o $(BUILD)/pmm.o $(BUILD)/vmm.o $(BUILD)/heap.o $(BUILD)/task.o $(BUILD)/kernel.o $(BUILD)/vga.o $(BUILD)/serial.o $(BUILD)/keyboard.o $(BUILD)/cpu.o $(BUILD)/rtc.o $(BUILD)/pci.o $(BUILD)/timer.o $(BUILD)/ramfs.o $(BUILD)/vfs.o $(BUILD)/mvhfs.o $(BUILD)/block.o
 DEPS := $(OBJECTS:.o=.d)
 HOST_TEST := $(BUILD)/host-storage-test
 HOST_UTIL_TEST := $(BUILD)/host-util-test
+HOST_MVHFS_TEST := $(BUILD)/host-mvhfs-test
 
 .DELETE_ON_ERROR:
 
@@ -104,6 +105,9 @@ $(BUILD)/ramfs.o: src/fs/ramfs.c | $(BUILD)
 $(BUILD)/vfs.o: src/fs/vfs.c | $(BUILD)
 	$(CC) $(CFLAGS) -c $< -o $@
 
+$(BUILD)/mvhfs.o: src/fs/mvhfs.c | $(BUILD)
+	$(CC) $(CFLAGS) -c $< -o $@
+
 $(BUILD)/block.o: src/storage/block.c | $(BUILD)
 	$(CC) $(CFLAGS) -c $< -o $@
 
@@ -116,9 +120,13 @@ $(HOST_TEST): tests/host_storage_test.c src/firmware/acpi.c src/firmware/smbios.
 $(HOST_UTIL_TEST): tests/host_util_test.c src/core/util.c | $(BUILD)
 	$(CC) -std=c11 -Wall -Wextra -Werror -O2 -Iinclude $^ -o $@
 
-host-test: $(HOST_TEST) $(HOST_UTIL_TEST)
+$(HOST_MVHFS_TEST): tests/host_mvhfs_test.c src/fs/mvhfs.c src/core/crc32.c src/core/sync.c src/storage/block.c | $(BUILD)
+	$(CC) -std=c11 -Wall -Wextra -Werror -O2 -Iinclude $^ -o $@
+
+host-test: $(HOST_TEST) $(HOST_UTIL_TEST) $(HOST_MVHFS_TEST)
 	./$(HOST_TEST)
 	./$(HOST_UTIL_TEST)
+	./$(HOST_MVHFS_TEST)
 
 clean:
 	rm -rf $(BUILD)

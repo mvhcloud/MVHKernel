@@ -12,6 +12,7 @@
 #include "mvh/interrupt.h"
 #include "mvh/log.h"
 #include "mvh/memory.h"
+#include "mvh/mvhfs.h"
 #include "mvh/panic.h"
 #include "mvh/pci.h"
 #include "mvh/rtc.h"
@@ -25,6 +26,9 @@
 #include "mvh/version.h"
 
 static uint8_t language;
+static mvhfs_t persistent_filesystem;
+static uint8_t persistent_file_buffer[MVHFS_FILE_MAX];
+static mvhfs_entry_t persistent_entries[MVHFS_MAX_FILES];
 
 _Static_assert(MVH_CONFIG_ARCH_X86_64 == 1, "MVH Kernel requires the x86_64 config");
 _Static_assert(MVH_CONFIG_BOOTINFO_V2 == 1, "BootInfo V2 must be enabled for ABI 2");
@@ -975,6 +979,99 @@ static void command_blockdev(void)
     }
 }
 
+static int persistent_ready(void)
+{
+    if (persistent_filesystem.mounted != 0u) return 1;
+    console_write("MVHFS is not mounted; use pmount <device-id> or pmkfs <device-id>\n");
+    return 0;
+}
+
+static void command_pmkfs(const char *argument)
+{
+    uint64_t device_id;
+    if (!parse_number(argument, &device_id) || device_id >= BLOCK_DEVICE_MAX) {
+        console_write("Usage: pmkfs <device-id>\n");
+        return;
+    }
+    if (mvhfs_format((uint32_t)device_id) != 0 ||
+        mvhfs_mount(&persistent_filesystem, (uint32_t)device_id) != 0) {
+        console_write("pmkfs: writable 512-byte block device with at least 522 sectors required\n");
+        return;
+    }
+    console_write("MVHFS formatted and mounted\n");
+}
+
+static void command_pmount(const char *argument)
+{
+    uint64_t device_id;
+    if (!parse_number(argument, &device_id) || device_id >= BLOCK_DEVICE_MAX ||
+        mvhfs_mount(&persistent_filesystem, (uint32_t)device_id) != 0) {
+        console_write("pmount: valid MVHFS device required\n");
+        return;
+    }
+    console_write("MVHFS mounted, generation ");
+    console_number(persistent_filesystem.generation);
+    console_write("\n");
+}
+
+static void command_pls(void)
+{
+    uint32_t count;
+    uint32_t index;
+    if (!persistent_ready()) return;
+    count = mvhfs_list(&persistent_filesystem, persistent_entries, MVHFS_MAX_FILES);
+    for (index = 0u; index < count && index < MVHFS_MAX_FILES; index++) {
+        console_write(persistent_entries[index].name);
+        console_write("  ");
+        console_number(persistent_entries[index].size);
+        console_write(" bytes\n");
+    }
+    if (count == 0u) console_write("MVHFS is empty\n");
+}
+
+static void command_pwrite(const char *argument)
+{
+    char name[MVHFS_NAME_MAX];
+    const char *text;
+    uint32_t size = 0u;
+    if (!persistent_ready()) return;
+    if (split_path_text(argument, name, MVHFS_NAME_MAX, &text) != 0) {
+        console_write("Usage: pwrite <name> <text>\n");
+        return;
+    }
+    while (size < MVHFS_FILE_MAX && text[size] != '\0') size++;
+    if (size == MVHFS_FILE_MAX) {
+        console_write("pwrite: file exceeds 4096 bytes\n");
+        return;
+    }
+    mvhfs_create(&persistent_filesystem, name);
+    if (mvhfs_write(&persistent_filesystem, name, text, size) != 0)
+        console_write("pwrite: write failed\n");
+}
+
+static void command_pcat(const char *name)
+{
+    uint32_t size;
+    uint32_t index;
+    int result;
+    if (!persistent_ready()) return;
+    result = mvhfs_read(&persistent_filesystem, name, persistent_file_buffer,
+                        sizeof(persistent_file_buffer), &size);
+    if (result != 0) {
+        console_write(result == -3 ? "pcat: checksum mismatch\n" : "pcat: file not found\n");
+        return;
+    }
+    for (index = 0u; index < size; index++) console_put((char)persistent_file_buffer[index]);
+    console_write("\n");
+}
+
+static void command_prm(const char *name)
+{
+    if (!persistent_ready()) return;
+    if (mvhfs_remove(&persistent_filesystem, name) != 0)
+        console_write("prm: file not found\n");
+}
+
 static void command_drivers(void)
 {
     console_colored("Loaded kernel drivers\n", 0x0Bu);
@@ -988,6 +1085,7 @@ static void command_drivers(void)
     console_write("  x86-exceptions        CPU exception handling\n");
     console_write("  pit-8254              system timer\n");
     console_write("  ramfs                 volatile filesystem\n");
+    console_write("  mvhfs                 persistent block filesystem\n");
     console_write("  device-manager        kernel device registry\n");
 }
 
@@ -1365,6 +1463,7 @@ static void run_command(const char *command)
             "  help         Mostrar esta lista\n  about        Mostrar informacion del sistema\n  statics      Abrir monitor de CPU y RAM\n  language     Mostrar o cambiar idioma\n  clear        Limpiar la pantalla\n  reboot       Reiniciar el sistema\n",
             "  help         Afficher cette liste\n  about        Afficher les informations systeme\n  statics      Ouvrir le moniteur CPU et RAM\n  language     Afficher ou changer la langue\n  clear        Effacer l'ecran\n  reboot       Redemarrer le systeme\n"));
         console_write("\nFilesystem: ls dir cd pwd mkdir touch write append cat type open rm rmdir mount df\n");
+        console_write("Persistent: pmkfs pmount pls pwrite pcat prm\n");
         console_write("System:     date uptime ticks sleep meminfo free devices lspci blockdev drivers features bootinfo\n");
         console_write("Kernel:     ps dmesg random crc32 selftest heaptest pagetest synctest faulttest\n");
         console_write("Debug:      cpuinfo firmwareinfo acpiinfo acpitables madtinfo ioapicinfo mcfginfo\n");
@@ -1500,6 +1599,18 @@ static void run_command(const char *command)
         command_random();
     } else if ((argument = command_argument(command, "crc32")) != 0) {
         command_crc32(argument);
+    } else if ((argument = command_argument(command, "pmkfs")) != 0) {
+        command_pmkfs(argument);
+    } else if ((argument = command_argument(command, "pmount")) != 0) {
+        command_pmount(argument);
+    } else if (text_equals(command, "pls")) {
+        command_pls();
+    } else if ((argument = command_argument(command, "pwrite")) != 0) {
+        command_pwrite(argument);
+    } else if ((argument = command_argument(command, "pcat")) != 0) {
+        command_pcat(argument);
+    } else if ((argument = command_argument(command, "prm")) != 0) {
+        command_prm(argument);
     } else if (text_equals(command, "mount")) {
         console_write("root on / type ");
         console_write(vfs_root_type());
