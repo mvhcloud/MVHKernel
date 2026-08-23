@@ -2,10 +2,11 @@ CC := gcc
 LD := ld
 
 BUILD := build
-CFLAGS := -m64 -mno-red-zone -std=c11 -ffreestanding -fno-pie -fno-stack-protector -fno-builtin -fno-unwind-tables -fno-asynchronous-unwind-tables -fno-omit-frame-pointer -Wall -Wextra -Werror -O2 -MMD -MP -Iinclude
-OBJECTS := $(BUILD)/entry64.o $(BUILD)/interrupt64.o $(BUILD)/interrupt.o $(BUILD)/hal.o $(BUILD)/bootinfo.o $(BUILD)/acpi.o $(BUILD)/smbios.o $(BUILD)/log.o $(BUILD)/panic.o $(BUILD)/crc32.o $(BUILD)/random.o $(BUILD)/sync.o $(BUILD)/device.o $(BUILD)/pmm.o $(BUILD)/vmm.o $(BUILD)/heap.o $(BUILD)/task.o $(BUILD)/kernel.o $(BUILD)/vga.o $(BUILD)/serial.o $(BUILD)/keyboard.o $(BUILD)/cpu.o $(BUILD)/rtc.o $(BUILD)/pci.o $(BUILD)/timer.o $(BUILD)/ramfs.o $(BUILD)/vfs.o $(BUILD)/block.o
+CFLAGS := -m64 -mno-red-zone -std=c11 -ffreestanding -fno-pie -fstack-protector-strong -mstack-protector-guard=global -fno-builtin -fno-unwind-tables -fno-asynchronous-unwind-tables -fno-omit-frame-pointer -Wall -Wextra -Werror -O2 -MMD -MP -Iinclude
+OBJECTS := $(BUILD)/entry64.o $(BUILD)/interrupt64.o $(BUILD)/interrupt.o $(BUILD)/hal.o $(BUILD)/bootinfo.o $(BUILD)/acpi.o $(BUILD)/smbios.o $(BUILD)/log.o $(BUILD)/panic.o $(BUILD)/stack_guard.o $(BUILD)/util.o $(BUILD)/crc32.o $(BUILD)/random.o $(BUILD)/sync.o $(BUILD)/device.o $(BUILD)/pmm.o $(BUILD)/vmm.o $(BUILD)/heap.o $(BUILD)/task.o $(BUILD)/kernel.o $(BUILD)/vga.o $(BUILD)/serial.o $(BUILD)/keyboard.o $(BUILD)/cpu.o $(BUILD)/rtc.o $(BUILD)/pci.o $(BUILD)/timer.o $(BUILD)/ramfs.o $(BUILD)/vfs.o $(BUILD)/block.o
 DEPS := $(OBJECTS:.o=.d)
 HOST_TEST := $(BUILD)/host-storage-test
+HOST_UTIL_TEST := $(BUILD)/host-util-test
 
 .DELETE_ON_ERROR:
 
@@ -41,6 +42,12 @@ $(BUILD)/log.o: src/core/log.c | $(BUILD)
 	$(CC) $(CFLAGS) -c $< -o $@
 
 $(BUILD)/panic.o: src/core/panic.c | $(BUILD)
+	$(CC) $(CFLAGS) -c $< -o $@
+
+$(BUILD)/stack_guard.o: src/core/stack_guard.c | $(BUILD)
+	$(CC) $(CFLAGS) -c $< -o $@
+
+$(BUILD)/util.o: src/core/util.c | $(BUILD)
 	$(CC) $(CFLAGS) -c $< -o $@
 
 $(BUILD)/crc32.o: src/core/crc32.c | $(BUILD)
@@ -106,8 +113,12 @@ $(BUILD)/kernel.elf: $(OBJECTS) linker.ld
 $(HOST_TEST): tests/host_storage_test.c src/firmware/acpi.c src/firmware/smbios.c src/core/bootinfo.c src/core/crc32.c src/core/sync.c src/storage/block.c | $(BUILD)
 	$(CC) -std=c11 -Wall -Wextra -Werror -O2 -Iinclude $^ -o $@
 
-host-test: $(HOST_TEST)
+$(HOST_UTIL_TEST): tests/host_util_test.c src/core/util.c | $(BUILD)
+	$(CC) -std=c11 -Wall -Wextra -Werror -O2 -Iinclude $^ -o $@
+
+host-test: $(HOST_TEST) $(HOST_UTIL_TEST)
 	./$(HOST_TEST)
+	./$(HOST_UTIL_TEST)
 
 clean:
 	rm -rf $(BUILD)

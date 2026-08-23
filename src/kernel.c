@@ -759,7 +759,7 @@ static void command_securityinfo(void)
     console_write(enabled.smap != 0u ? "yes" : "no");
     console_write("\n  UMIP enabled   : ");
     console_write(enabled.umip != 0u ? "yes" : "no");
-    console_write("\n  Stack protector: not compiled\n  KASLR          : not implemented\n");
+    console_write("\n  Stack protector: strong/global guard\n  KASLR          : not implemented\n");
 }
 
 static void command_firmwareinfo(void)
@@ -989,6 +989,16 @@ static void command_drivers(void)
     console_write("  pit-8254              system timer\n");
     console_write("  ramfs                 volatile filesystem\n");
     console_write("  device-manager        kernel device registry\n");
+}
+
+static void command_utilinfo(void)
+{
+    console_colored("Kernel utility API\n", 0x0Eu);
+    console_write("  Memory APIs    : 5\n");
+    console_write("  String APIs    : 13\n");
+    console_write("  ASCII APIs     : 12\n");
+    console_write("  Integer/bit APIs: 20\n");
+    console_write("  Total          : 50 (native-test covered)\n");
 }
 
 static void feature_line(const char *name, uint32_t available, const char *description)
@@ -1359,7 +1369,7 @@ static void run_command(const char *command)
         console_write("Kernel:     ps dmesg random crc32 selftest heaptest pagetest synctest faulttest\n");
         console_write("Debug:      cpuinfo firmwareinfo acpiinfo acpitables madtinfo ioapicinfo mcfginfo\n");
         console_write("Firmware:   hpetinfo smbiosinfo smpinfo\n");
-        console_write("Stats:      pmmstat timerstat randomstat securityinfo heapinfo irqstat pagetable paniccodes\n");
+        console_write("Stats:      pmmstat timerstat randomstat securityinfo utilinfo heapinfo irqstat pagetable paniccodes\n");
         console_write("Info:       uname version hostname whoami\n");
         console_write("Other:      echo clear cls reboot\n");
         console_write("Use '<command> help' is not required; arguments follow the command.\n");
@@ -1478,6 +1488,8 @@ static void run_command(const char *command)
         command_randomstat();
     } else if (text_equals(command, "securityinfo")) {
         command_securityinfo();
+    } else if (text_equals(command, "utilinfo")) {
+        command_utilinfo();
     } else if (text_equals(command, "irqstat")) {
         command_irqstat();
     } else if (text_equals(command, "pagetable")) {

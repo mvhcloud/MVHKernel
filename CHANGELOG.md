@@ -1,5 +1,16 @@
 # MVH Kernel Release Log
 
+## 1.1.7 Daily
+
+- Added 50 exported, bounded kernel utility APIs for memory, strings, ASCII, integer parsing, alignment, overflow checks, rotations, population counts and byte swapping
+- Added native positive, boundary, overlap, truncation and overflow coverage for all 50 utility APIs
+- Enabled GCC `-fstack-protector-strong` with a freestanding global guard and panic handler
+- Added compiler stack-protector status to `securityinfo`
+- Updated the canonical documentation address to `https://kernel.mvhcloud.com/`
+- Shortened repository and release-facing documentation and removed transitional GitHub wording
+- Added scheduled validation: daily through 27 August 2026 and weekly afterward
+- Retained hardware-dependent APIC/SMP, Ring 3, storage, USB and network work as explicit engineering boundaries rather than placeholder claims
+
 ## 1.1.6-2
 
 - Added strict SMBIOS 2.x and SMBIOS 3.x entry-point parsing with all required checksums
