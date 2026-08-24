@@ -9,9 +9,13 @@ MVH Kernel is a standalone x86_64 kernel, not an operating-system distribution. 
 - BIOS discovery and strict validation of ACPI, SMBIOS, MADT, FADT, HPET, MCFG, SRAT and SLIT data
 - Local APIC and IOAPIC activation, firmware IRQ overrides and automatic legacy PIC fallback
 - INIT-SIPI-SIPI application-processor startup with per-CPU stacks, GS-local state and online diagnostics
+- Per-CPU GDT and TSS state with dedicated Double Fault, NMI and Machine Check IST stacks
+- Reschedule, stop and range-based TLB-shootdown IPIs with runtime acknowledgement tests
+- Cooperative x86_64 kernel-thread context switching, priorities, affinity, round-robin queues and lifecycle states
 - Active HPET monotonic counter with PIT system-tick fallback
 - PCIe ECAM configuration access through a remapped MMIO window with CF8/CFC fallback
 - Physical-page allocation, dynamic virtual mappings, null-page protection and a guarded kernel heap
+- SMP-serialized physical/heap allocators and DMA32 coherent/scatter-gather allocation APIs
 - Strong stack protection, NX, SMEP, SMAP, UMIP and supervisor write protection where supported
 - ATA PIO and transitional VirtIO writable block storage plus validated MBR and GPT probing
 - VFS with RAMFS root and MVHFS persistent storage with dual superblocks, copy-on-write metadata and CRC32 recovery
@@ -58,7 +62,7 @@ For persistent QEMU storage, attach a writable IDE disk. Use `pmkfs`, `pmount`, 
 
 ## Planned work
 
-- SMP-aware scheduler queues, preemptive kernel threads and cross-CPU rescheduling
+- Preemptive timer scheduling, per-CPU runqueues and cross-CPU load balancing
 - Ring 3 execution, syscall ABI and userspace ELF loading
 - Managed physical memory beyond the Multiboot-mapped first 4 GiB
 - AHCI and NVMe block drivers

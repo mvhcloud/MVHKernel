@@ -4,7 +4,13 @@
 
 - Added a low-memory x86 startup trampoline and INIT-SIPI-SIPI application-processor boot sequence
 - Added per-CPU kernel stacks, GS-based CPU-local records, online state and AP idle loops
+- Added per-CPU GDT/TSS instances, Ring-3-ready descriptors and separate IST stacks for Double Fault, NMI and Machine Check
 - Added Local APIC IPI delivery, per-CPU LAPIC enablement and reusable IDT loading
+- Added acknowledged reschedule and TLB-shootdown IPIs plus a controlled CPU-stop IPI
+- Added a real cooperative assembly context switch with kernel threads, dedicated stacks, priorities, affinity, lifecycle queues and scheduler statistics
+- Added SMP serialization to the physical page allocator and hardened kernel heap
+- Added atomic 64-bit operations, semaphores, completions, conditions, seqlocks and explicit memory barriers
+- Added coherent DMA32/DMA64 allocation, identity DMA mapping and scatter/gather construction
 - Extended ACPI table validation across the loader-mapped 4 GiB window for high-RAM guests
 - Extended `smpinfo`, CPU diagnostics and QEMU validation to require every configured vCPU online
 - Added a root Mintlify `docs.json` configuration without a documentation subdirectory
