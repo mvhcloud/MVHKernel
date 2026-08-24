@@ -1,6 +1,7 @@
 #include <stdint.h>
 #include "mvh/memory.h"
 #include "mvh/panic.h"
+#include "mvh/sync.h"
 
 #define HEAP_PAGES 256u
 #define HEAP_GUARD_PAGES 2u
@@ -24,6 +25,7 @@ static uint64_t heap_used;
 static uint64_t heap_allocations;
 static uint64_t heap_failures;
 static uint64_t heap_invalid_frees;
+static spinlock_t heap_lock;
 
 static uint64_t *block_canary(heap_block_t *block)
 {
@@ -38,6 +40,7 @@ static uint64_t align16(uint64_t value)
 int heap_init(void)
 {
     uint32_t page;
+    spinlock_init(&heap_lock);
     heap_allocation_base = pmm_alloc_pages(HEAP_PAGES + HEAP_GUARD_PAGES);
     if (heap_allocation_base == 0) {
         return -1;
@@ -70,7 +73,7 @@ int heap_init(void)
     return 0;
 }
 
-void *kmalloc(uint64_t size)
+static void *kmalloc_unlocked(uint64_t size)
 {
     heap_block_t *block = heap_first;
     heap_block_t *split;
@@ -116,7 +119,7 @@ void *kmalloc(uint64_t size)
     return 0;
 }
 
-void kfree(void *address)
+static void kfree_unlocked(void *address)
 {
     heap_block_t *block;
     if (address == 0) {
@@ -154,6 +157,22 @@ void kfree(void *address)
             block->next->previous = block->previous;
         }
     }
+}
+
+void *kmalloc(uint64_t size)
+{
+    void *result;
+    spinlock_lock(&heap_lock);
+    result = kmalloc_unlocked(size);
+    spinlock_unlock(&heap_lock);
+    return result;
+}
+
+void kfree(void *address)
+{
+    spinlock_lock(&heap_lock);
+    kfree_unlocked(address);
+    spinlock_unlock(&heap_lock);
 }
 
 uint64_t heap_total_bytes(void)
@@ -200,9 +219,11 @@ void *krealloc(void *address, uint64_t size)
         kfree(address);
         return 0;
     }
+    spinlock_lock(&heap_lock);
     block = ((heap_block_t *)address) - 1;
     if (block->magic != HEAP_MAGIC || block->free != 0u) {
         heap_invalid_frees++;
+        spinlock_unlock(&heap_lock);
         return 0;
     }
     if (*block_canary(block) != (HEAP_CANARY ^ (uint64_t)(uintptr_t)block)) {
@@ -210,13 +231,18 @@ void *krealloc(void *address, uint64_t size)
     }
     if (size <= block->requested) {
         block->requested = size;
+        spinlock_unlock(&heap_lock);
         return address;
     }
-    replacement = (uint8_t *)kmalloc(size);
-    if (replacement == 0) return 0;
+    replacement = (uint8_t *)kmalloc_unlocked(size);
+    if (replacement == 0) {
+        spinlock_unlock(&heap_lock);
+        return 0;
+    }
     copy_size = block->requested;
     for (index = 0u; index < copy_size; index++) replacement[index] = source[index];
-    kfree(address);
+    kfree_unlocked(address);
+    spinlock_unlock(&heap_lock);
     return replacement;
 }
 

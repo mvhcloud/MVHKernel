@@ -1,5 +1,6 @@
 #include <stdint.h>
 #include "mvh/memory.h"
+#include "mvh/sync.h"
 
 #define PAGE_SIZE 4096u
 #define PMM_MAX_PAGES 1048576u
@@ -13,6 +14,7 @@ static uint64_t allocation_requests;
 static uint64_t free_requests;
 static uint64_t failed_allocations;
 static uint32_t peak_used_pages;
+static spinlock_t pmm_lock;
 
 static void page_set(uint32_t page)
 {
@@ -33,6 +35,7 @@ void pmm_init_limit(uint64_t memory_kib, uintptr_t kernel_end, uint64_t mapped_l
 {
     uint64_t bytes = memory_kib * 1024u;
     uint32_t page;
+    spinlock_init(&pmm_lock);
     if (mapped_limit == 0u || mapped_limit > 0x100000000ull) mapped_limit = 0x40000000u;
     if (bytes > mapped_limit) bytes = mapped_limit;
     managed_pages = (uint32_t)(bytes / PAGE_SIZE);
@@ -66,9 +69,11 @@ void *pmm_alloc_pages(uint32_t count)
     uint32_t start;
     uint32_t page;
     uint32_t found;
+    spinlock_lock(&pmm_lock);
     allocation_requests++;
     if (count == 0u || count > managed_pages) {
         failed_allocations++;
+        spinlock_unlock(&pmm_lock);
         return 0;
     }
     for (start = reserved_pages; start + count <= managed_pages; start++) {
@@ -86,10 +91,12 @@ void *pmm_alloc_pages(uint32_t count)
             }
             used_pages += count;
             if (used_pages > peak_used_pages) peak_used_pages = used_pages;
+            spinlock_unlock(&pmm_lock);
             return (void *)(uintptr_t)((uint64_t)start * PAGE_SIZE);
         }
     }
     failed_allocations++;
+    spinlock_unlock(&pmm_lock);
     return 0;
 }
 
@@ -97,9 +104,11 @@ void pmm_free_pages(void *address, uint32_t count)
 {
     uint32_t start = (uint32_t)((uintptr_t)address / PAGE_SIZE);
     uint32_t page;
+    spinlock_lock(&pmm_lock);
     free_requests++;
     if (count == 0u || ((uintptr_t)address & (PAGE_SIZE - 1u)) != 0u || start < reserved_pages ||
         start + count > managed_pages) {
+        spinlock_unlock(&pmm_lock);
         return;
     }
     for (page = 0u; page < count; page++) {
@@ -108,10 +117,12 @@ void pmm_free_pages(void *address, uint32_t count)
             used_pages--;
         }
     }
+    spinlock_unlock(&pmm_lock);
 }
 
 void pmm_get_stats(pmm_stats_t *stats)
 {
+    spinlock_lock(&pmm_lock);
     stats->total_pages = managed_pages;
     stats->used_pages = used_pages;
     stats->free_pages = managed_pages - used_pages;
@@ -120,6 +131,7 @@ void pmm_get_stats(pmm_stats_t *stats)
     stats->free_requests = free_requests;
     stats->failed_allocations = failed_allocations;
     stats->peak_used_pages = peak_used_pages;
+    spinlock_unlock(&pmm_lock);
 }
 
 int pmm_self_test(void)

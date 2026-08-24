@@ -2,6 +2,7 @@
 #include "mvh/acpi.h"
 #include "mvh/apic.h"
 #include "mvh/cpu.h"
+#include "mvh/gdt.h"
 #include "mvh/interrupt.h"
 #include "mvh/memory.h"
 #include "mvh/serial.h"
@@ -80,6 +81,9 @@ const smp_cpu_t *smp_current_cpu(void)
 void smp_ap_entry(smp_cpu_t *cpu)
 {
     configure_gs(cpu);
+    if (gdt_init_cpu(cpu->logical_id, cpu->stack_top) != 0) {
+        for (;;) __asm__ volatile ("cli; hlt");
+    }
     interrupt_load_idt();
     apic_init_local_cpu();
     __atomic_store_n(&cpu->online, 1u, __ATOMIC_RELEASE);
@@ -109,6 +113,11 @@ int smp_init(void)
     discovered_cpus = 1u;
     online_cpus = 1u;
     configure_gs(&cpus[0]);
+    {
+        uintptr_t rsp;
+        __asm__ volatile ("mov %%rsp, %0" : "=r"(rsp));
+        if (gdt_init_cpu(0u, rsp) != 0) return -1;
+    }
     copy_trampoline();
     __asm__ volatile ("mov %%cr3, %0" : "=r"(cr3));
     trampoline_write64(ap_trampoline_cr3, cr3);

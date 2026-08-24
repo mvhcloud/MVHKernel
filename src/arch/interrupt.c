@@ -1,5 +1,6 @@
 #include <stdint.h>
 #include "mvh/interrupt.h"
+#include "mvh/gdt.h"
 #include "mvh/io.h"
 #include "mvh/panic.h"
 
@@ -88,6 +89,12 @@ static void idt_set(uint8_t vector, void (*handler)(void))
     idt[vector].reserved = 0u;
 }
 
+static void idt_set_ist(uint8_t vector, void (*handler)(void), uint8_t ist)
+{
+    idt_set(vector, handler);
+    idt[vector].ist = ist & 7u;
+}
+
 static void pic_remap(void)
 {
     uint8_t master_mask = io_in8(0x21u);
@@ -121,6 +128,9 @@ void interrupt_init(void)
     for (index = 0u; index < 32u; index++) {
         idt_set((uint8_t)index, exception_stubs[index]);
     }
+    idt_set_ist(2u, exception_stub_2, GDT_IST_NMI);
+    idt_set_ist(8u, exception_stub_8, GDT_IST_DOUBLE_FAULT);
+    idt_set_ist(18u, exception_stub_18, GDT_IST_MACHINE_CHECK);
     idt_set(32u, irq_timer_entry);
     idt_set(255u, irq_spurious_entry);
     interrupt_load_idt();
