@@ -11,7 +11,7 @@ HOST_MVHFS_TEST := $(BUILD)/host-mvhfs-test
 
 .DELETE_ON_ERROR:
 
-.PHONY: all clean host-test
+.PHONY: all clean host-test iso
 
 all: $(BUILD)/kernel.elf
 
@@ -130,6 +130,12 @@ host-test: $(HOST_TEST) $(HOST_UTIL_TEST) $(HOST_MVHFS_TEST)
 	./$(HOST_TEST)
 	./$(HOST_UTIL_TEST)
 	./$(HOST_MVHFS_TEST)
+
+iso: $(BUILD)/kernel.elf config/grub.cfg
+	mkdir -p $(BUILD)/iso/boot/grub
+	cp $(BUILD)/kernel.elf $(BUILD)/iso/boot/kernel.elf
+	cp config/grub.cfg $(BUILD)/iso/boot/grub/grub.cfg
+	grub-mkrescue -o $(BUILD)/mvh-kernel.iso $(BUILD)/iso
 
 clean:
 	rm -rf $(BUILD)

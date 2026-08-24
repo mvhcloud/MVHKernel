@@ -37,6 +37,16 @@ jobs:
         if: steps.cadence.outputs.run == 'true'
         run: make clean all
 
+      - name: Install boot image tools
+        if: steps.cadence.outputs.run == 'true'
+        run: |
+          sudo apt-get update
+          sudo apt-get install --no-install-recommends -y grub-pc-bin xorriso
+
+      - name: Build bootable QEMU image
+        if: steps.cadence.outputs.run == 'true'
+        run: make iso
+
       - name: Run native tests
         if: steps.cadence.outputs.run == 'true'
         run: make host-test
@@ -55,6 +65,8 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: mvh-kernel-${{ github.sha }}
-          path: build/kernel.elf
+          path: |
+            build/kernel.elf
+            build/mvh-kernel.iso
           if-no-files-found: error
           retention-days: 14
