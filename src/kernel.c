@@ -18,6 +18,7 @@
 #include "mvh/interrupt.h"
 #include "mvh/log.h"
 #include "mvh/memory.h"
+#include "mvh/module.h"
 #include "mvh/mvhfs.h"
 #include "mvh/net.h"
 #include "mvh/panic.h"
@@ -38,6 +39,20 @@ static uint8_t language;
 static mvhfs_t persistent_filesystem;
 static uint8_t persistent_file_buffer[MVHFS_FILE_MAX];
 static mvhfs_entry_t persistent_entries[MVHFS_MAX_FILES];
+
+#define BUILTIN_MODULE(module_name, module_version) \
+    { sizeof(mvh_module_descriptor_t), MVH_KERNEL_ABI_VERSION, module_name, module_version, \
+      MVH_MODULE_BUILTIN, 0u, 0, 0, 0 }
+
+static const mvh_module_descriptor_t builtin_modules[] = {
+    BUILTIN_MODULE("memory-core", "1.1.9"),
+    BUILTIN_MODULE("smp-apic", "1.1.9"),
+    BUILTIN_MODULE("scheduler", "1.1.9"),
+    BUILTIN_MODULE("dma-core", "1.1.9"),
+    BUILTIN_MODULE("virtio-block", "1.1.9"),
+    BUILTIN_MODULE("network-core", "1.1.9"),
+    BUILTIN_MODULE("vfs-mvhfs", "1.1.9")
+};
 
 _Static_assert(MVH_CONFIG_ARCH_X86_64 == 1, "MVH Kernel requires the x86_64 config");
 _Static_assert(MVH_CONFIG_BOOTINFO_V2 == 1, "BootInfo V2 must be enabled for ABI 2");
@@ -1500,6 +1515,7 @@ static void command_selftest(void)
     failures += selftest_line("null page protection", vmm_query_page(0u, 0, 0) != 0 ? 0 : -1) != 0;
     failures += selftest_line("dynamic page mapping", vmm_self_test()) != 0;
     failures += selftest_line("DMA32 coherent and scatter/gather", dma_self_test()) != 0;
+    failures += selftest_line("kernel module registry and ELF validator", module_self_test()) != 0;
     failures += selftest_line("VFS root", vfs_read("/etc/version", &data, &size) == 0 &&
                               size != 0u ? 0 : -1) != 0;
     failures += selftest_line("device registry", device_count() >= 11u ? 0 : -1) != 0;
@@ -1525,6 +1541,41 @@ static void command_dmesg(void)
         return;
     }
     console_write(output);
+}
+
+static void command_modules(void)
+{
+    mvh_module_info_t info[32];
+    uint32_t count = module_snapshot(info, sizeof(info) / sizeof(info[0]));
+    uint32_t index;
+    console_write("Module                 Version   State       Ref  Kind\n");
+    for (index = 0u; index < count; index++) {
+        console_write(info[index].name);
+        console_write("  ");
+        console_write(info[index].version);
+        console_write("  ");
+        console_write(module_state_name(info[index].state));
+        console_write("  ");
+        console_number(info[index].references);
+        console_write((info[index].flags & MVH_MODULE_BUILTIN) != 0u ? "  built-in\n" : "  loadable\n");
+    }
+}
+
+static void register_kernel_modules(void)
+{
+    uint32_t index;
+    module_init();
+    for (index = 0u; index < sizeof(builtin_modules) / sizeof(builtin_modules[0]); index++)
+        if (module_register_builtin(&builtin_modules[index]) != 0)
+            kernel_panic("built-in module registration failed");
+    if (module_export_symbol("kmalloc", (uintptr_t)&kmalloc, "memory-core") != 0 ||
+        module_export_symbol("kcalloc", (uintptr_t)&kcalloc, "memory-core") != 0 ||
+        module_export_symbol("krealloc", (uintptr_t)&krealloc, "memory-core") != 0 ||
+        module_export_symbol("kfree", (uintptr_t)&kfree, "memory-core") != 0 ||
+        module_export_symbol("module_acquire", (uintptr_t)&module_acquire, "kernel") != 0 ||
+        module_export_symbol("module_release", (uintptr_t)&module_release, "kernel") != 0)
+        kernel_panic("kernel module symbol export failed");
+    if (module_self_test() != 0) kernel_panic("kernel module subsystem self-test failed");
 }
 
 static void register_platform_devices(void)
@@ -1561,7 +1612,7 @@ static void run_command(const char *command)
         console_write("\nFilesystem: ls dir cd pwd mkdir touch write append cat type open rm rmdir mount df\n");
         console_write("Persistent: pmkfs pmount pls pwrite pcat prm\n");
         console_write("System:     date uptime ticks sleep meminfo free devices lspci blockdev drivers features bootinfo netinfo\n");
-        console_write("Kernel:     ps dmesg random crc32 selftest heaptest pagetest synctest faulttest\n");
+        console_write("Kernel:     ps modules insmod rmmod dmesg random crc32 selftest heaptest pagetest synctest faulttest\n");
         console_write("Debug:      cpuinfo firmwareinfo acpiinfo acpitables madtinfo ioapicinfo mcfginfo\n");
         console_write("Firmware:   hpetinfo smbiosinfo smpinfo\n");
         console_write("Stats:      pmmstat timerstat randomstat securityinfo utilinfo heapinfo irqstat pagetable paniccodes\n");
@@ -1717,6 +1768,25 @@ static void run_command(const char *command)
         console_write("  /\n");
     } else if (text_equals(command, "ps")) {
         command_ps();
+    } else if (text_equals(command, "modules")) {
+        command_modules();
+    } else if ((argument = command_argument(command, "insmod")) != 0) {
+        const char *module_data;
+        const char *loaded_name;
+        uint16_t module_size;
+        if (argument[0] == '\0' || vfs_read(argument, &module_data, &module_size) != 0)
+            console_write("insmod: module file not found\n");
+        else if (module_elf_load(module_data, module_size, &loaded_name) != 0)
+            console_write("insmod: invalid, unresolved, or incompatible ELF64 module\n");
+        else {
+            console_write("Loaded module: ");
+            console_write(loaded_name);
+            console_write("\n");
+        }
+    } else if ((argument = command_argument(command, "rmmod")) != 0) {
+        if (argument[0] == '\0' || module_unload(argument) != 0)
+            console_write("rmmod: module is built-in, busy, or not live\n");
+        else console_write("Module unloaded\n");
     } else if (text_equals(command, "heaptest")) {
         command_heaptest();
     } else if (text_equals(command, "pagetest")) {
@@ -1876,6 +1946,8 @@ void kernel_main(uint64_t memory_kib, uint64_t boot_data)
     task_init(hal_ticks());
     if (task_self_test() != 0) kernel_panic("cooperative scheduler self-test failed");
     klog_write("INFO", "kernel thread context switch and round-robin scheduler self-test passed");
+    register_kernel_modules();
+    klog_write("INFO", "kernel module ABI, dependency and ELF relocation loader initialized");
     register_platform_devices();
     klog_write("INFO", "device manager initialized");
     if (framebuffer_status()->active != 0u && boot_option_present("mvh.mode=setup"))

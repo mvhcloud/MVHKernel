@@ -24,6 +24,9 @@ MVH Kernel is a standalone x86_64 kernel, not an operating-system distribution. 
 - VGA text output, bidirectional UART console, PS/2 keyboard, RTC, CPUID and CPU diagnostics
 - ChaCha20 entropy pool using supported CPU random sources and runtime timing input
 - Interactive shell, per-vector interrupt counters, kernel log, panic diagnostics and combined self-tests
+- Kernel module ABI with dependency ordering, lifecycle states, reference counting and a versioned symbol-export registry
+- Bounds-checked ELF64 `ET_REL` module loading with x86_64 RELA relocation and unresolved-symbol rejection
+- Built-in module inventory plus `modules`, `insmod` and `rmmod` shell diagnostics
 
 ## Build and test
 
@@ -59,6 +62,7 @@ For persistent QEMU storage, attach a writable IDE disk. Use `pmkfs`, `pmount`, 
 | SMP | x2APIC IDs above 255 are not started yet; failed APs remain offline and are reported by `smpinfo` |
 | Network | Protocol handling is available but no supported NIC driver is attached |
 | Entropy | Hardware sources are unavailable and insufficient runtime input has accumulated |
+| Kernel module | The ELF machine/ABI is incompatible, a dependency or exported symbol is missing, relocation is unsupported, or the module is still referenced |
 
 ## Planned work
 
