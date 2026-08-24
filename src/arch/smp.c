@@ -5,7 +5,6 @@
 #include "mvh/interrupt.h"
 #include "mvh/memory.h"
 #include "mvh/smp.h"
-#include "mvh/timer.h"
 
 #define AP_TRAMPOLINE_ADDRESS 0x8000u
 #define AP_TRAMPOLINE_VECTOR (AP_TRAMPOLINE_ADDRESS >> 12u)
@@ -121,9 +120,9 @@ int smp_init(void)
         __atomic_thread_fence(__ATOMIC_SEQ_CST);
         if (apic_start_application_processor(cpu->apic_id,
                                              (uint8_t)AP_TRAMPOLINE_VECTOR) != 0) continue;
-        for (wait = 0u; wait < 500u &&
+        for (wait = 0u; wait < 10000000u &&
              __atomic_load_n(&cpu->online, __ATOMIC_ACQUIRE) == 0u; wait++)
-            timer_sleep_ms(1u);
+            __asm__ volatile ("pause");
     }
     return online_cpus != 0u ? 0 : -1;
 }

@@ -5,7 +5,6 @@
 #include "mvh/interrupt.h"
 #include "mvh/io.h"
 #include "mvh/memory.h"
-#include "mvh/timer.h"
 
 #define IA32_APIC_BASE 0x1Bu
 #define IA32_APIC_BASE_ENABLE (1ull << 11u)
@@ -66,6 +65,12 @@ static int lapic_send_ipi(uint32_t apic_id, uint32_t command)
     lapic_write(LAPIC_ICR_HIGH, apic_id << 24u);
     lapic_write(LAPIC_ICR_LOW, command);
     return lapic_wait_delivery();
+}
+
+static void apic_startup_delay(uint64_t cycles)
+{
+    uint64_t start = cpu_read_tsc();
+    while (cpu_read_tsc() - start < cycles) __asm__ volatile ("pause");
 }
 
 static uint32_t ioapic_read(uint8_t reg)
@@ -193,10 +198,10 @@ int apic_start_application_processor(uint32_t apic_id, uint8_t startup_vector)
 {
     if (startup_vector == 0u) return -1;
     if (lapic_send_ipi(apic_id, 0x0000C500u) != 0) return -1;
-    timer_sleep_ms(10u);
+    apic_startup_delay(30000000u);
     if (lapic_send_ipi(apic_id, 0x00008500u) != 0) return -1;
-    timer_sleep_ms(10u);
+    apic_startup_delay(30000000u);
     if (lapic_send_ipi(apic_id, 0x00000600u | startup_vector) != 0) return -1;
-    timer_sleep_ms(1u);
+    apic_startup_delay(3000000u);
     return lapic_send_ipi(apic_id, 0x00000600u | startup_vector);
 }
