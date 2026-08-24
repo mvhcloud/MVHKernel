@@ -45,7 +45,7 @@ jobs:
 
       - name: Build bootable QEMU image
         if: steps.cadence.outputs.run == 'true'
-        run: make iso
+        run: make iso system-iso
 
       - name: Boot QEMU compatibility matrix
         if: steps.cadence.outputs.run == 'true'
@@ -53,10 +53,15 @@ jobs:
           scripts/qemu-smoke.sh build/mvh-kernel.iso pc 128 1
           scripts/qemu-smoke.sh build/mvh-kernel.iso pc 512 2
           scripts/qemu-smoke.sh build/mvh-kernel.iso q35 1024 4
+          scripts/qemu-smoke.sh build/mvh-kernel.iso q35 2048 4
 
       - name: Verify persistent filesystem across QEMU reboot
         if: steps.cadence.outputs.run == 'true'
         run: scripts/qemu-persistence.sh build/mvh-kernel.iso
+
+      - name: Boot graphical distribution
+        if: steps.cadence.outputs.run == 'true'
+        run: scripts/qemu-gui-smoke.sh build/mvh-betriebsystem.iso
 
       - name: Run native tests
         if: steps.cadence.outputs.run == 'true'
@@ -79,5 +84,6 @@ jobs:
           path: |
             build/kernel.elf
             build/mvh-kernel.iso
+            build/mvh-betriebsystem.iso
           if-no-files-found: error
           retention-days: 14

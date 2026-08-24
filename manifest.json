@@ -92,7 +92,7 @@
   ],
   "memory": {
     "page_size": 4096,
-    "identity_map_limit_mib": 1024,
+    "identity_map_limit_mib": 4096,
     "heap_size_mib": 1,
     "nx_capability_detection": true,
     "nx_enforcement": true,
@@ -106,6 +106,7 @@
     "kernel-mode-only",
     "volatile-root-filesystem",
     "no-userspace-elf-loader",
+    "physical-memory-management-limited-to-four-gib-on-multiboot-path",
     "smp-application-processors-detected-but-not-started",
     "cpu-temperature-limited-to-supported-intel-dts-and-amd-families",
     "no-supported-network-device-driver",

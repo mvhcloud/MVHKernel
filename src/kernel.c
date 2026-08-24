@@ -1816,7 +1816,9 @@ void kernel_main(uint64_t memory_kib, uint64_t boot_data)
         else klog_write("INFO", "SMBIOS unavailable");
     }
     klog_write("INFO", "hardware abstraction layer initialized");
-    pmm_init(memory_kib, (uintptr_t)&__kernel_end);
+    pmm_init_limit(memory_kib, (uintptr_t)&__kernel_end,
+                   (bootinfo_current()->flags & MVH_BOOTINFO_FLAG_IDENTITY_4G) != 0u ?
+                   0x100000000ull : MVH_BOOTINFO_IDENTITY_LIMIT);
     klog_write("INFO", "physical memory manager initialized");
     if (vmm_init() != 0) {
         kernel_panic("virtual memory manager initialization failed");

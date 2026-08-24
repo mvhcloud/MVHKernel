@@ -35,6 +35,7 @@ typedef struct {
 #define VMM_NO_EXECUTE (1ull << 63u)
 
 void pmm_init(uint64_t memory_kib, uintptr_t kernel_end);
+void pmm_init_limit(uint64_t memory_kib, uintptr_t kernel_end, uint64_t mapped_limit);
 void *pmm_alloc_pages(uint32_t count);
 void pmm_free_pages(void *address, uint32_t count);
 void pmm_get_stats(pmm_stats_t *stats);

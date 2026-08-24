@@ -2,7 +2,7 @@
 #include "mvh/memory.h"
 
 #define PAGE_SIZE 4096u
-#define PMM_MAX_PAGES 262144u
+#define PMM_MAX_PAGES 1048576u
 #define PMM_BITMAP_BYTES (PMM_MAX_PAGES / 8u)
 
 static uint8_t page_bitmap[PMM_BITMAP_BYTES];
@@ -29,13 +29,12 @@ static uint8_t page_used(uint32_t page)
     return page_bitmap[page >> 3u] & (uint8_t)(1u << (page & 7u));
 }
 
-void pmm_init(uint64_t memory_kib, uintptr_t kernel_end)
+void pmm_init_limit(uint64_t memory_kib, uintptr_t kernel_end, uint64_t mapped_limit)
 {
     uint64_t bytes = memory_kib * 1024u;
     uint32_t page;
-    if (bytes > 0x40000000u) {
-        bytes = 0x40000000u;
-    }
+    if (mapped_limit == 0u || mapped_limit > 0x100000000ull) mapped_limit = 0x40000000u;
+    if (bytes > mapped_limit) bytes = mapped_limit;
     managed_pages = (uint32_t)(bytes / PAGE_SIZE);
     if (managed_pages > PMM_MAX_PAGES) {
         managed_pages = PMM_MAX_PAGES;
@@ -55,6 +54,11 @@ void pmm_init(uint64_t memory_kib, uintptr_t kernel_end)
     free_requests = 0u;
     failed_allocations = 0u;
     peak_used_pages = used_pages;
+}
+
+void pmm_init(uint64_t memory_kib, uintptr_t kernel_end)
+{
+    pmm_init_limit(memory_kib, kernel_end, 0x40000000u);
 }
 
 void *pmm_alloc_pages(uint32_t count)

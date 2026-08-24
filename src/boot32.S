@@ -20,7 +20,7 @@ _multiboot_start:
 
     /* Multiboot supplies upper memory in KiB when information flag 0 is set. */
     movl $131072, bootstrap_memory_kib
-    movl $0, bootstrap_info_flags
+    movl $0x40, bootstrap_info_flags
     cmpl $0x2BADB002, %eax
     jne bootstrap_paging
     mov %ebx, %esi
@@ -83,13 +83,20 @@ bootstrap_paging:
     mov %eax, (%edi,%ecx,8)
     movl $0, 4(%edi,%ecx,8)
     inc %ecx
-    cmp $512, %ecx
+    cmp $2048, %ecx
     jne 4b
 
-    mov $bootstrap_pd, %eax
+    xor %ecx, %ecx
+5:
+    mov %ecx, %eax
+    shl $12, %eax
+    add $bootstrap_pd, %eax
     or $3, %eax
-    mov %eax, bootstrap_pdpt
-    movl $0, bootstrap_pdpt+4
+    mov %eax, bootstrap_pdpt(,%ecx,8)
+    movl $0, bootstrap_pdpt+4(,%ecx,8)
+    inc %ecx
+    cmp $4, %ecx
+    jne 5b
     mov $bootstrap_pdpt, %eax
     or $3, %eax
     mov %eax, bootstrap_pml4
@@ -185,7 +192,7 @@ bootstrap_pml4:
 bootstrap_pdpt:
     .skip 4096
 bootstrap_pd:
-    .skip 4096
+    .skip 16384
 .align 16
 bootstrap_stack:
     .skip 32768

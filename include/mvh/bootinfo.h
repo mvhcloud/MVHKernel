@@ -15,7 +15,8 @@
 #define MVH_BOOTINFO_FLAG_FRAMEBUFFER (1ull << 3u)
 #define MVH_BOOTINFO_FLAG_RANDOM_SEED (1ull << 4u)
 #define MVH_BOOTINFO_FLAG_COMMAND_LINE (1ull << 5u)
-#define MVH_BOOTINFO_KNOWN_FLAGS ((1ull << 6u) - 1u)
+#define MVH_BOOTINFO_FLAG_IDENTITY_4G (1ull << 6u)
+#define MVH_BOOTINFO_KNOWN_FLAGS ((1ull << 7u) - 1u)
 
 typedef enum {
     MVH_MEMORY_USABLE = 1u,

@@ -1,4 +1,5 @@
 #include <stdint.h>
+#include "mvh/bootinfo.h"
 #include "mvh/memory.h"
 
 #define PAGE_SIZE 4096ull
@@ -125,7 +126,8 @@ int vmm_init(void)
 {
     uintptr_t address;
     uint64_t flags;
-    mapped_page_count = 512u * 512u;
+    mapped_page_count = (bootinfo_current()->flags & MVH_BOOTINFO_FLAG_IDENTITY_4G) != 0u ?
+                        4ull * 512ull * 512ull : 512ull * 512ull;
     if (vmm_unmap_page(0u) != 0) return -1;
     for (address = (uintptr_t)&__kernel_start; address < (uintptr_t)&__text_end;
          address += PAGE_SIZE) {
