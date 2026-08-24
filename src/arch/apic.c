@@ -52,7 +52,7 @@ static void lapic_write(uint32_t offset, uint32_t value)
 static int lapic_wait_delivery(void)
 {
     uint32_t timeout;
-    for (timeout = 0u; timeout < 1000000u; timeout++) {
+    for (timeout = 0u; timeout < 10000u; timeout++) {
         if ((lapic_read(LAPIC_ICR_LOW) & LAPIC_ICR_DELIVERY_PENDING) == 0u) return 0;
         __asm__ volatile ("pause");
     }
@@ -67,10 +67,9 @@ static int lapic_send_ipi(uint32_t apic_id, uint32_t command)
     return lapic_wait_delivery();
 }
 
-static void apic_startup_delay(uint64_t cycles)
+static void apic_startup_delay(uint32_t iterations)
 {
-    uint64_t start = cpu_read_tsc();
-    while (cpu_read_tsc() - start < cycles) __asm__ volatile ("pause");
+    while (iterations-- != 0u) __asm__ volatile ("pause");
 }
 
 static uint32_t ioapic_read(uint8_t reg)
@@ -198,10 +197,10 @@ int apic_start_application_processor(uint32_t apic_id, uint8_t startup_vector)
 {
     if (startup_vector == 0u) return -1;
     if (lapic_send_ipi(apic_id, 0x0000C500u) != 0) return -1;
-    apic_startup_delay(30000000u);
+    apic_startup_delay(1000000u);
     if (lapic_send_ipi(apic_id, 0x00008500u) != 0) return -1;
-    apic_startup_delay(30000000u);
+    apic_startup_delay(1000000u);
     if (lapic_send_ipi(apic_id, 0x00000600u | startup_vector) != 0) return -1;
-    apic_startup_delay(3000000u);
+    apic_startup_delay(100000u);
     return lapic_send_ipi(apic_id, 0x00000600u | startup_vector);
 }
