@@ -94,7 +94,8 @@ static uint64_t scan_rsdp_range(uint64_t start, uint64_t end)
 
 uint64_t acpi_discover_rsdp(void)
 {
-    uint16_t ebda_segment = *(const volatile uint16_t *)(uintptr_t)0x40Eu;
+    uint16_t ebda_segment;
+    __asm__ volatile ("movw 0x40e, %0" : "=r"(ebda_segment));
     uint64_t ebda = (uint64_t)ebda_segment << 4u;
     uint64_t result = 0u;
     if (ebda >= 0x80000u && ebda < 0xA0000u)
