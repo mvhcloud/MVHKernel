@@ -1,5 +1,22 @@
 # MVH Kernel Release Log
 
+## 1.1.8 Daily
+
+- Added a Multiboot bootstrap that enters x86_64 Long Mode and a bootable GRUB ISO image
+- Added reproducible QEMU boot validation for `pc` and `q35`, 128 MiB to 1 GiB RAM and one to four vCPUs
+- Added BIOS-memory ACPI RSDP and SMBIOS discovery when the loader does not supply firmware pointers
+- Activated Local APIC and IOAPIC interrupt routing with MADT overrides, spurious-vector handling and safe PIC fallback
+- Activated the HPET main counter as a monotonic nanosecond time source while retaining PIT ticks
+- Activated PCIe ECAM configuration access through a reusable MMIO mapping window with legacy PCI fallback
+- Added an ATA PIO LBA28 driver that registers writable disks with the block layer
+- Added bidirectional UART shell input for headless testing and recovery
+- Added an automated MVHFS format/write/cold-reboot/remount/read persistence test on a real QEMU disk
+- Added Ethernet II, ARP, IPv4, ICMP echo and UDP parsing/building with validated checksums
+- Added an expiring ARP cache and longest-prefix/metric route selection
+- Added native positive, corruption and boundary tests for the network protocol core
+- Updated runtime diagnostics for active IOAPIC, HPET, PCIe ECAM, storage and networking state
+- Kept unsupported SMP, Ring 3, high-memory, modern storage, NIC and USB hardware paths explicit
+
 ## 1.1.7 Daily
 
 - Added MVHFS, a small persistent filesystem with dual CRC32 superblocks, duplicated directories and copy-on-write file slots
