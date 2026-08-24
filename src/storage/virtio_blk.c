@@ -23,7 +23,7 @@
 #define VIRTQ_DESC_WRITE 2u
 #define VIRTIO_BLK_READ 0u
 #define VIRTIO_BLK_WRITE 1u
-#define VIRTIO_QUEUE_MAX 128u
+#define VIRTIO_QUEUE_MAX 256u
 #define VIRTIO_TIMEOUT 100000000u
 
 typedef struct __attribute__((packed)) {
@@ -188,8 +188,7 @@ int virtio_blk_init(void)
     io_out32((uint16_t)(io_base + VIRTIO_PCI_GUEST_FEATURES), 0u);
     io_out16((uint16_t)(io_base + VIRTIO_PCI_QUEUE_SELECT), 0u);
     device.queue_size = io_in16((uint16_t)(io_base + VIRTIO_PCI_QUEUE_SIZE));
-    if (device.queue_size < 3u) return -1;
-    if (device.queue_size > VIRTIO_QUEUE_MAX) device.queue_size = VIRTIO_QUEUE_MAX;
+    if (device.queue_size < 3u || device.queue_size > VIRTIO_QUEUE_MAX) return -1;
     queue = (uint8_t *)pmm_alloc_pages(3u);
     if (queue == 0 || (uintptr_t)queue > 0xFFFFF000u) return -1;
     for (index = 0u; index < 3u * 4096u; index++) queue[index] = 0u;

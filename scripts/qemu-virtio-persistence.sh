@@ -20,9 +20,9 @@ run_kernel() {
 }
 
 run_kernel $'pmkfs 0\npwrite virtio survives-virtio-reboot\n' "$first_log"
-grep -F "VirtIO block queue initialized" "$first_log"
-grep -F "MVHFS formatted and mounted" "$first_log"
+grep -F "VirtIO block queue initialized" "$first_log" || { cat "$first_log"; exit 1; }
+grep -F "MVHFS formatted and mounted" "$first_log" || { cat "$first_log"; exit 1; }
 run_kernel $'pmount 0\npcat virtio\n' "$second_log"
-grep -F "MVHFS mounted" "$second_log"
-grep -F "survives-virtio-reboot" "$second_log"
+grep -F "MVHFS mounted" "$second_log" || { cat "$second_log"; exit 1; }
+grep -F "survives-virtio-reboot" "$second_log" || { cat "$second_log"; exit 1; }
 printf 'QEMU VirtIO block persistence passed across a cold reboot\n'
