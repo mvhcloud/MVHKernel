@@ -9,7 +9,9 @@
 #include "mvh/config.h"
 #include "mvh/crc32.h"
 #include "mvh/device.h"
+#include "mvh/desktop.h"
 #include "mvh/fs.h"
+#include "mvh/framebuffer.h"
 #include "mvh/hal.h"
 #include "mvh/hpet.h"
 #include "mvh/interrupt.h"
@@ -89,6 +91,27 @@ static int text_equals(const char *left, const char *right)
         right++;
     }
     return *left == *right;
+}
+
+static int boot_option_present(const char *option)
+{
+    const mvh_bootinfo_snapshot_t *boot = bootinfo_current();
+    const char *command;
+    uint32_t option_size = 0u;
+    uint32_t offset;
+    if ((boot->flags & MVH_BOOTINFO_FLAG_COMMAND_LINE) == 0u || option == 0) return 0;
+    while (option[option_size] != '\0') option_size++;
+    command = (const char *)(uintptr_t)boot->command_line_address;
+    for (offset = 0u; offset + option_size <= boot->command_line_size; offset++) {
+        uint32_t index;
+        if (offset != 0u && command[offset - 1u] != ' ') continue;
+        for (index = 0u; index < option_size; index++)
+            if (command[offset + index] != option[index]) break;
+        if (index == option_size &&
+            (offset + option_size == boot->command_line_size ||
+             command[offset + option_size] == ' ')) return 1;
+    }
+    return 0;
 }
 
 static const char *command_argument(const char *command, const char *name)
@@ -1799,6 +1822,9 @@ void kernel_main(uint64_t memory_kib, uint64_t boot_data)
         kernel_panic("virtual memory manager initialization failed");
     }
     klog_write("INFO", "paging protections and null guard initialized");
+    if (framebuffer_init() == 0)
+        klog_write("INFO", "linear framebuffer mapped for graphical console");
+    else klog_write("INFO", "linear framebuffer unavailable; VGA text console active");
     if (hpet_init() == 0) klog_write("INFO", "HPET monotonic counter activated");
     else klog_write("INFO", "HPET unavailable; PIT remains the monotonic fallback");
     if (pci_init() == 0) klog_write("INFO", "PCIe ECAM configuration access activated");
@@ -1815,6 +1841,10 @@ void kernel_main(uint64_t memory_kib, uint64_t boot_data)
     task_init(hal_ticks());
     register_platform_devices();
     klog_write("INFO", "device manager initialized");
+    if (framebuffer_status()->active != 0u && boot_option_present("mvh.mode=setup"))
+        desktop_run(1u);
+    if (framebuffer_status()->active != 0u && boot_option_present("mvh.mode=desktop"))
+        desktop_run(0u);
     console_colored("+==================================================+\n", 0x0Bu);
     console_colored("|                MVH Kernel x86_64                 |\n", 0x0Fu);
     console_colored("|         Version " MVH_KERNEL_VERSION " - MVHCLOUD.com             |\n", 0x0Fu);

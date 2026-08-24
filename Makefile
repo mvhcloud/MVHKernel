@@ -13,6 +13,10 @@ OBJECTS += $(BUILD)/net.o
 DEPS += $(BUILD)/net.d
 OBJECTS += $(BUILD)/hpet.o
 DEPS += $(BUILD)/hpet.d
+OBJECTS += $(BUILD)/framebuffer.o
+DEPS += $(BUILD)/framebuffer.d
+OBJECTS += $(BUILD)/input.o $(BUILD)/desktop.o
+DEPS += $(BUILD)/input.d $(BUILD)/desktop.d
 HOST_TEST := $(BUILD)/host-storage-test
 HOST_UTIL_TEST := $(BUILD)/host-util-test
 HOST_MVHFS_TEST := $(BUILD)/host-mvhfs-test
@@ -49,6 +53,15 @@ $(BUILD)/net.o: src/net/net.c | $(BUILD)
 	$(CC) $(CFLAGS) -c $< -o $@
 
 $(BUILD)/hpet.o: src/drivers/hpet.c | $(BUILD)
+	$(CC) $(CFLAGS) -c $< -o $@
+
+$(BUILD)/framebuffer.o: src/drivers/framebuffer.c | $(BUILD)
+	$(CC) $(CFLAGS) -c $< -o $@
+
+$(BUILD)/input.o: src/device/input.c | $(BUILD)
+	$(CC) $(CFLAGS) -c $< -o $@
+
+$(BUILD)/desktop.o: src/ui/desktop.c | $(BUILD)
 	$(CC) $(CFLAGS) -c $< -o $@
 
 $(BUILD)/hal.o: src/hal/hal.c | $(BUILD)
