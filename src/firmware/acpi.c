@@ -68,9 +68,10 @@ static uint64_t read_u64(const uint8_t *data)
 
 static int mapped_range(uint64_t address, uint32_t length)
 {
+    uint64_t limit = (bootinfo_current()->flags & MVH_BOOTINFO_FLAG_IDENTITY_4G) != 0u ?
+                     0x100000000ull : MVH_BOOTINFO_IDENTITY_LIMIT;
     return address >= 0x1000u && length != 0u &&
-           address < MVH_BOOTINFO_IDENTITY_LIMIT &&
-           length <= MVH_BOOTINFO_IDENTITY_LIMIT - address;
+           address < limit && length <= limit - address;
 }
 
 static uint64_t scan_rsdp_range(uint64_t start, uint64_t end)

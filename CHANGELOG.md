@@ -5,6 +5,7 @@
 - Added a low-memory x86 startup trampoline and INIT-SIPI-SIPI application-processor boot sequence
 - Added per-CPU kernel stacks, GS-based CPU-local records, online state and AP idle loops
 - Added Local APIC IPI delivery, per-CPU LAPIC enablement and reusable IDT loading
+- Extended ACPI table validation across the loader-mapped 4 GiB window for high-RAM guests
 - Extended `smpinfo`, CPU diagnostics and QEMU validation to require every configured vCPU online
 - Added a root Mintlify `docs.json` configuration without a documentation subdirectory
 - Added a transactional release updater for the local MVH Betriebsystem project
