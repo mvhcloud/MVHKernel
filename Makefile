@@ -17,6 +17,8 @@ OBJECTS += $(BUILD)/framebuffer.o
 DEPS += $(BUILD)/framebuffer.d
 OBJECTS += $(BUILD)/input.o $(BUILD)/desktop.o
 DEPS += $(BUILD)/input.d $(BUILD)/desktop.d
+OBJECTS += $(BUILD)/virtio_blk.o
+DEPS += $(BUILD)/virtio_blk.d
 HOST_TEST := $(BUILD)/host-storage-test
 HOST_UTIL_TEST := $(BUILD)/host-util-test
 HOST_MVHFS_TEST := $(BUILD)/host-mvhfs-test
@@ -62,6 +64,9 @@ $(BUILD)/input.o: src/device/input.c | $(BUILD)
 	$(CC) $(CFLAGS) -c $< -o $@
 
 $(BUILD)/desktop.o: src/ui/desktop.c | $(BUILD)
+	$(CC) $(CFLAGS) -c $< -o $@
+
+$(BUILD)/virtio_blk.o: src/storage/virtio_blk.c | $(BUILD)
 	$(CC) $(CFLAGS) -c $< -o $@
 
 $(BUILD)/hal.o: src/hal/hal.c | $(BUILD)

@@ -30,6 +30,7 @@
 #include "mvh/vfs.h"
 #include "mvh/vga.h"
 #include "mvh/version.h"
+#include "mvh/virtio_blk.h"
 
 static uint8_t language;
 static mvhfs_t persistent_filesystem;
@@ -1831,6 +1832,9 @@ void kernel_main(uint64_t memory_kib, uint64_t boot_data)
     else klog_write("INFO", "HPET unavailable; PIT remains the monotonic fallback");
     if (pci_init() == 0) klog_write("INFO", "PCIe ECAM configuration access activated");
     else klog_write("INFO", "PCIe ECAM unavailable; legacy PCI configuration remains active");
+    if (virtio_blk_init() == 0)
+        klog_write("INFO", "VirtIO block queue initialized and writable disk registered");
+    else klog_write("INFO", "VirtIO transitional block device unavailable");
     if (apic_init() == 0)
         klog_write("INFO", "Local APIC and IOAPIC activated; legacy PIC disabled");
     else klog_write("INFO", "APIC activation unavailable; legacy PIC remains active");

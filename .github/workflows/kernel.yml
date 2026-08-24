@@ -59,6 +59,10 @@ jobs:
         if: steps.cadence.outputs.run == 'true'
         run: scripts/qemu-persistence.sh build/mvh-kernel.iso
 
+      - name: Verify VirtIO block persistence
+        if: steps.cadence.outputs.run == 'true'
+        run: scripts/qemu-virtio-persistence.sh build/mvh-kernel.iso
+
       - name: Boot graphical distribution
         if: steps.cadence.outputs.run == 'true'
         run: scripts/qemu-gui-smoke.sh build/mvh-betriebsystem.iso

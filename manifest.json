@@ -40,6 +40,7 @@
     "pit-8254",
     "hpet-monotonic-counter",
     "ata-pio-lba28-disk",
+    "virtio-block-transitional-queue",
     "ramfs",
     "vfs-root",
     "device-manager"
@@ -64,6 +65,7 @@
     "ticket-and-rw-locks",
     "block-device-registry",
     "polling-ata-persistent-block-io",
+    "virtio-block-persistent-io",
     "ethernet-arp-ipv4-icmp-udp-protocol-core",
     "expiring-arp-cache-and-longest-prefix-routing",
     "graphical-setup-and-desktop-runtime",
