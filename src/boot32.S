@@ -142,6 +142,7 @@ bootstrap_gdt_pointer:
 .align 8
 bootstrap_memory_kib:
     .long 131072
+.align 8
 bootstrap_bootinfo:
     .quad 0x324F464E4948564D
     .long 2
