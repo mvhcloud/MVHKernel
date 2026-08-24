@@ -2,6 +2,7 @@
 #include "mvh/acpi.h"
 #include "mvh/apic.h"
 #include "mvh/assert.h"
+#include "mvh/ata.h"
 #include "mvh/block.h"
 #include "mvh/bootinfo.h"
 #include "mvh/cpu.h"
@@ -1708,6 +1709,7 @@ void kernel_main(uint64_t memory_kib, uint64_t boot_data)
     char input;
     int bootinfo_status = bootinfo_capture(memory_kib, boot_data);
     uint64_t firmware_address;
+    uint32_t ata_count;
     klog_init();
     hal_init();
     if (bootinfo_status != 0) {
@@ -1723,10 +1725,14 @@ void kernel_main(uint64_t memory_kib, uint64_t boot_data)
                     bootinfo_current()->random_seed_size, estimated_bits);
     }
     block_init();
+    ata_count = ata_init();
     ASSERT(hal_timer_frequency() != 0u);
     klog_set_console(1u);
     klog_write("INFO", MVH_KERNEL_NAME " " MVH_KERNEL_VERSION " build " MVH_KERNEL_BUILD_ID);
     klog_write("INFO", "kernel ABI " MVH_KERNEL_ABI_STRING "; boot ABI 2 with legacy fallback");
+    if (ata_count != 0u)
+        klog_write("INFO", "ATA PIO registered writable persistent block storage");
+    else klog_write("INFO", "ATA PIO found no compatible disk; block registry remains available");
     if ((bootinfo_current()->flags & MVH_BOOTINFO_FLAG_ACPI_RSDP) != 0u) {
         if (acpi_init(bootinfo_current()->acpi_rsdp_address) == 0)
             klog_write("INFO", "ACPI tables validated and registered");

@@ -7,6 +7,8 @@ OBJECTS := $(BUILD)/boot32.o $(BUILD)/entry64.o $(BUILD)/interrupt64.o $(BUILD)/
 DEPS := $(OBJECTS:.o=.d)
 OBJECTS += $(BUILD)/apic.o
 DEPS += $(BUILD)/apic.d
+OBJECTS += $(BUILD)/ata.o
+DEPS += $(BUILD)/ata.d
 HOST_TEST := $(BUILD)/host-storage-test
 HOST_UTIL_TEST := $(BUILD)/host-util-test
 HOST_MVHFS_TEST := $(BUILD)/host-mvhfs-test
@@ -33,6 +35,9 @@ $(BUILD)/interrupt.o: src/arch/interrupt.c | $(BUILD)
 	$(CC) $(CFLAGS) -c $< -o $@
 
 $(BUILD)/apic.o: src/arch/apic.c | $(BUILD)
+	$(CC) $(CFLAGS) -c $< -o $@
+
+$(BUILD)/ata.o: src/storage/ata.c | $(BUILD)
 	$(CC) $(CFLAGS) -c $< -o $@
 
 $(BUILD)/hal.o: src/hal/hal.c | $(BUILD)

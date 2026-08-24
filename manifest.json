@@ -35,6 +35,7 @@
     "acpi-rsdp-xsdt-rsdt",
     "smbios-2-and-3-platform-metadata",
     "pit-8254",
+    "ata-pio-lba28-disk",
     "ramfs",
     "vfs-root",
     "device-manager"
@@ -58,6 +59,7 @@
     "entropy-pool-chacha20",
     "ticket-and-rw-locks",
     "block-device-registry",
+    "polling-ata-persistent-block-io",
     "mbr-gpt-partition-probe",
     "crc32-integrity-core",
     "validated-gpt-header-and-entry-array",
