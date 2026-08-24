@@ -41,7 +41,7 @@ jobs:
         if: steps.cadence.outputs.run == 'true'
         run: |
           sudo apt-get update
-          sudo apt-get install --no-install-recommends -y grub-pc-bin xorriso
+          sudo apt-get install --no-install-recommends -y grub-pc-bin mtools xorriso
 
       - name: Build bootable QEMU image
         if: steps.cadence.outputs.run == 'true'
