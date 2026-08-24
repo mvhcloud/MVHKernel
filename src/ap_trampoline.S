@@ -37,7 +37,8 @@ ap_trampoline_protected:
     mov (AP_BASE + AP_DATA), %eax
     mov %eax, %cr3
     mov %cr4, %eax
-    or $0x20, %eax
+    /* PAE plus OSFXSR/OSXMMEXCPT before entering compiler-generated C code. */
+    or $0x620, %eax
     mov %eax, %cr4
     mov $0xC0000080, %ecx
     rdmsr
