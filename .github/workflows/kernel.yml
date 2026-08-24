@@ -81,7 +81,7 @@ jobs:
           nm build/kernel.elf | grep -F "__stack_chk_fail"
 
       - name: Upload kernel artifact
-        if: steps.cadence.outputs.run == 'true'
+        if: always() && steps.cadence.outputs.run == 'true'
         uses: actions/upload-artifact@v7
         with:
           name: mvh-kernel-${{ github.sha }}
