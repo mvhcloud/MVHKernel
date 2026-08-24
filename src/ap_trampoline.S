@@ -41,7 +41,8 @@ ap_trampoline_protected:
     mov %eax, %cr4
     mov $0xC0000080, %ecx
     rdmsr
-    or $0x100, %eax
+    /* The BSP page tables already contain NX entries, so APs must enable NXE. */
+    or $0x900, %eax
     wrmsr
     mov %cr0, %eax
     or $0x80000000, %eax
