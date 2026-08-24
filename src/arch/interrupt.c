@@ -3,6 +3,7 @@
 #include "mvh/gdt.h"
 #include "mvh/io.h"
 #include "mvh/panic.h"
+#include "mvh/smp.h"
 
 typedef struct {
     uint16_t offset_low;
@@ -33,6 +34,9 @@ void interrupt_load_idt(void)
 
 extern void irq_timer_entry(void);
 extern void irq_spurious_entry(void);
+extern void irq_reschedule_entry(void);
+extern void irq_tlb_entry(void);
+extern void irq_stop_entry(void);
 extern void exception_stub_0(void);
 extern void exception_stub_1(void);
 extern void exception_stub_2(void);
@@ -132,6 +136,9 @@ void interrupt_init(void)
     idt_set_ist(8u, exception_stub_8, GDT_IST_DOUBLE_FAULT);
     idt_set_ist(18u, exception_stub_18, GDT_IST_MACHINE_CHECK);
     idt_set(32u, irq_timer_entry);
+    idt_set(SMP_IPI_RESCHEDULE, irq_reschedule_entry);
+    idt_set(SMP_IPI_TLB_SHOOTDOWN, irq_tlb_entry);
+    idt_set(SMP_IPI_STOP, irq_stop_entry);
     idt_set(255u, irq_spurious_entry);
     interrupt_load_idt();
     pic_remap();

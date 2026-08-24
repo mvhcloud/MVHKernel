@@ -24,5 +24,7 @@ const apic_status_t *apic_status(void);
 void apic_eoi(void);
 void apic_init_local_cpu(void);
 int apic_start_application_processor(uint32_t apic_id, uint8_t startup_vector);
+int apic_send_fixed(uint32_t apic_id, uint8_t vector);
+int apic_broadcast_fixed(uint8_t vector);
 
 #endif

@@ -204,3 +204,17 @@ int apic_start_application_processor(uint32_t apic_id, uint8_t startup_vector)
     apic_startup_delay(100000u);
     return lapic_send_ipi(apic_id, 0x00000600u | startup_vector);
 }
+
+int apic_send_fixed(uint32_t apic_id, uint8_t vector)
+{
+    if (vector < 32u) return -1;
+    return lapic_send_ipi(apic_id, vector);
+}
+
+int apic_broadcast_fixed(uint8_t vector)
+{
+    if (lapic == 0 || vector < 32u || lapic_wait_delivery() != 0) return -1;
+    lapic_write(LAPIC_ICR_HIGH, 0u);
+    lapic_write(LAPIC_ICR_LOW, (3u << 18u) | vector);
+    return lapic_wait_delivery();
+}

@@ -7,6 +7,7 @@
 #include "mvh/memory.h"
 #include "mvh/serial.h"
 #include "mvh/smp.h"
+#include "mvh/sync.h"
 
 #define AP_TRAMPOLINE_ADDRESS 0x8000u
 #define AP_TRAMPOLINE_VECTOR (AP_TRAMPOLINE_ADDRESS >> 12u)
@@ -24,6 +25,10 @@ extern uint8_t ap_trampoline_entry[];
 static smp_cpu_t cpus[SMP_MAX_CPUS];
 static volatile uint32_t discovered_cpus;
 static volatile uint32_t online_cpus;
+static spinlock_t tlb_lock;
+static volatile uintptr_t tlb_address;
+static volatile uint64_t tlb_size;
+static volatile uint32_t tlb_acknowledged;
 
 static void serial_number(uint32_t value)
 {
@@ -86,9 +91,9 @@ void smp_ap_entry(smp_cpu_t *cpu)
     }
     interrupt_load_idt();
     apic_init_local_cpu();
+    interrupt_enable();
     __atomic_store_n(&cpu->online, 1u, __ATOMIC_RELEASE);
     __atomic_add_fetch(&online_cpus, 1u, __ATOMIC_ACQ_REL);
-    interrupt_enable();
     for (;;) {
         cpu->idle_halts++;
         __asm__ volatile ("hlt");
@@ -112,6 +117,7 @@ int smp_init(void)
     cpus[0].online = 1u;
     discovered_cpus = 1u;
     online_cpus = 1u;
+    spinlock_init(&tlb_lock);
     configure_gs(&cpus[0]);
     {
         uintptr_t rsp;
@@ -143,6 +149,9 @@ int smp_init(void)
         cpu->stack_base = (uintptr_t)stack;
         cpu->stack_top = cpu->stack_base + AP_STACK_PAGES * 4096u;
         cpu->idle_halts = 0u;
+        cpu->reschedule_pending = 0u;
+        cpu->ipi_count = 0u;
+        cpu->tlb_shootdowns = 0u;
         cpu->online = 0u;
         discovered_cpus++;
         trampoline_write64(ap_trampoline_stack, cpu->stack_top);
@@ -157,7 +166,7 @@ int smp_init(void)
              __atomic_load_n(&cpu->online, __ATOMIC_ACQUIRE) == 0u; wait++)
             __asm__ volatile ("pause");
     }
-    return online_cpus != 0u ? 0 : -1;
+    return online_cpus != 0u && smp_ipi_self_test() == 0 ? 0 : -1;
 }
 
 uint32_t smp_cpu_count(void)
@@ -173,4 +182,105 @@ uint32_t smp_online_count(void)
 const smp_cpu_t *smp_cpu_info(uint32_t logical_id)
 {
     return logical_id < smp_cpu_count() ? &cpus[logical_id] : 0;
+}
+
+int smp_request_reschedule(uint32_t logical_id)
+{
+    smp_cpu_t *cpu;
+    const smp_cpu_t *current;
+    if (logical_id >= smp_cpu_count()) return -1;
+    cpu = &cpus[logical_id];
+    if (cpu->online == 0u) return -1;
+    current = smp_current_cpu();
+    if (current != 0 && logical_id == current->logical_id) {
+        cpu->reschedule_pending = 1u;
+        return 0;
+    }
+    return apic_send_fixed(cpu->apic_id, SMP_IPI_RESCHEDULE);
+}
+
+int smp_stop_cpu(uint32_t logical_id)
+{
+    smp_cpu_t *cpu;
+    if (logical_id == 0u || logical_id >= smp_cpu_count()) return -1;
+    cpu = &cpus[logical_id];
+    return cpu->online != 0u ? apic_send_fixed(cpu->apic_id, SMP_IPI_STOP) : -1;
+}
+
+static void invalidate_range(uintptr_t address, uint64_t size)
+{
+    uintptr_t page = address & ~4095ull;
+    uintptr_t end = (address + size + 4095u) & ~4095ull;
+    while (page < end) {
+        __asm__ volatile ("invlpg (%0)" : : "r"(page) : "memory");
+        page += 4096u;
+    }
+}
+
+int smp_tlb_shootdown(uintptr_t address, uint64_t size)
+{
+    uint32_t expected;
+    uint32_t wait;
+    if (size == 0u || size > UINTPTR_MAX - address ||
+        address + size > UINTPTR_MAX - 4095u) return -1;
+    spinlock_lock(&tlb_lock);
+    tlb_address = address;
+    tlb_size = size;
+    tlb_acknowledged = 0u;
+    memory_barrier();
+    expected = smp_online_count() - 1u;
+    if (expected != 0u && apic_broadcast_fixed(SMP_IPI_TLB_SHOOTDOWN) != 0) {
+        spinlock_unlock(&tlb_lock);
+        return -1;
+    }
+    invalidate_range(address, size);
+    for (wait = 0u; wait < 10000000u &&
+         __atomic_load_n(&tlb_acknowledged, __ATOMIC_ACQUIRE) < expected; wait++)
+        __asm__ volatile ("pause");
+    spinlock_unlock(&tlb_lock);
+    return tlb_acknowledged == expected ? 0 : -1;
+}
+
+void smp_reschedule_ipi(void)
+{
+    smp_cpu_t *cpu = (smp_cpu_t *)smp_current_cpu();
+    cpu->reschedule_pending = 1u;
+    cpu->ipi_count++;
+    apic_eoi();
+}
+
+void smp_tlb_ipi(void)
+{
+    smp_cpu_t *cpu = (smp_cpu_t *)smp_current_cpu();
+    memory_barrier();
+    invalidate_range(tlb_address, tlb_size);
+    cpu->tlb_shootdowns++;
+    cpu->ipi_count++;
+    __atomic_add_fetch(&tlb_acknowledged, 1u, __ATOMIC_RELEASE);
+    apic_eoi();
+}
+
+void smp_stop_ipi(void)
+{
+    smp_cpu_t *cpu = (smp_cpu_t *)smp_current_cpu();
+    cpu->ipi_count++;
+    cpu->online = 0u;
+    __atomic_sub_fetch(&online_cpus, 1u, __ATOMIC_ACQ_REL);
+    apic_eoi();
+    for (;;) __asm__ volatile ("cli; hlt");
+}
+
+int smp_ipi_self_test(void)
+{
+    uint32_t index;
+    for (index = 1u; index < smp_cpu_count(); index++) {
+        uint32_t wait;
+        cpus[index].reschedule_pending = 0u;
+        if (cpus[index].online == 0u || smp_request_reschedule(index) != 0) return -1;
+        for (wait = 0u; wait < 1000000u && cpus[index].reschedule_pending == 0u; wait++)
+            __asm__ volatile ("pause");
+        if (cpus[index].reschedule_pending == 0u) return -1;
+        cpus[index].reschedule_pending = 0u;
+    }
+    return smp_tlb_shootdown((uintptr_t)cpus, sizeof(cpus)) == 0 ? 0 : -1;
 }

@@ -677,6 +677,11 @@ static void command_smpinfo(void)
         console_write(cpu->x2apic != 0u ? " x2APIC" : " xAPIC");
         console_write(cpu->online != 0u ? " online" : " offline");
         console_write(cpu->bootstrap != 0u ? " BSP\n" : " AP\n");
+        console_write("    IPIs=");
+        console_number(cpu->ipi_count);
+        console_write(" TLB-shootdowns=");
+        console_number(cpu->tlb_shootdowns);
+        console_write(cpu->reschedule_pending != 0u ? " reschedule-pending\n" : "\n");
     }
 }
 
@@ -1857,6 +1862,7 @@ void kernel_main(uint64_t memory_kib, uint64_t boot_data)
             console_write(" of ");
             console_number(smp_cpu_count());
             console_write(" managed\n");
+            klog_write("INFO", "SMP reschedule and TLB-shootdown IPI self-test passed");
         } else klog_write("WARN", "SMP startup unavailable; BSP remains active");
     } else klog_write("INFO", "APIC activation unavailable; legacy PIC remains active");
     if (heap_init() != 0) {

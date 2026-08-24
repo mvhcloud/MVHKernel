@@ -29,6 +29,55 @@ irq_spurious_entry:
     iretq
 .size irq_spurious_entry, . - irq_spurious_entry
 
+.extern smp_reschedule_ipi
+.extern smp_tlb_ipi
+.extern smp_stop_ipi
+
+.macro IPI_ENTRY name, handler
+.global \name
+.type \name, @function
+\name:
+    push %rax
+    push %rbx
+    push %rcx
+    push %rdx
+    push %rsi
+    push %rdi
+    push %r8
+    push %r9
+    push %r10
+    push %r11
+    mov %rsp, %rbx
+    and $-16, %rsp
+    call \handler
+    mov %rbx, %rsp
+    pop %r11
+    pop %r10
+    pop %r9
+    pop %r8
+    pop %rdi
+    pop %rsi
+    pop %rdx
+    pop %rcx
+    pop %rbx
+    pop %rax
+    iretq
+.size \name, . - \name
+.endm
+
+IPI_ENTRY irq_reschedule_entry, smp_reschedule_ipi
+IPI_ENTRY irq_tlb_entry, smp_tlb_ipi
+
+.global irq_stop_entry
+.type irq_stop_entry, @function
+irq_stop_entry:
+    cli
+    call smp_stop_ipi
+1:
+    hlt
+    jmp 1b
+.size irq_stop_entry, . - irq_stop_entry
+
 .macro EXCEPTION_NO_ERROR vector
 .global exception_stub_\vector
 .type exception_stub_\vector, @function
