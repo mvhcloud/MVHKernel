@@ -61,6 +61,8 @@
     "ticket-and-rw-locks",
     "block-device-registry",
     "polling-ata-persistent-block-io",
+    "ethernet-arp-ipv4-icmp-udp-protocol-core",
+    "expiring-arp-cache-and-longest-prefix-routing",
     "mbr-gpt-partition-probe",
     "crc32-integrity-core",
     "validated-gpt-header-and-entry-array",

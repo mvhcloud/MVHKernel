@@ -15,6 +15,7 @@
 #include "mvh/log.h"
 #include "mvh/memory.h"
 #include "mvh/mvhfs.h"
+#include "mvh/net.h"
 #include "mvh/panic.h"
 #include "mvh/pci.h"
 #include "mvh/rtc.h"
@@ -1167,6 +1168,18 @@ static void command_features(void)
     console_write("Additional detected cores require SMP startup support.\n");
 }
 
+static void command_netinfo(void)
+{
+    console_colored("Network protocol core\n", 0x0Eu);
+    console_write("  Ethernet II    : frame parse/build\n");
+    console_write("  ARP            : request/reply codec, expiring 32-entry cache\n");
+    console_write("  IPv4           : header validation/build, checksum, fragmentation metadata\n");
+    console_write("  ICMP           : validated echo-reply generation\n");
+    console_write("  UDP            : datagram parse/build with pseudo-header checksum\n");
+    console_write("  Routing        : 16 routes, longest-prefix and metric selection\n");
+    console_write("  NIC state      : no supported hardware interface attached\n");
+}
+
 static void command_random(void)
 {
     uint32_t bits = random_entropy_bits();
@@ -1417,6 +1430,7 @@ static void command_selftest(void)
     failures += selftest_line("SMBIOS parser", smbios_self_test()) != 0;
     failures += selftest_line("entropy generator", random_self_test()) != 0;
     failures += selftest_line("block and partition layer", block_self_test()) != 0;
+    failures += selftest_line("network protocol core", net_self_test()) != 0;
     failures += selftest_line("heap structure", heap_validate()) != 0;
     failures += selftest_line("null page protection", vmm_query_page(0u, 0, 0) != 0 ? 0 : -1) != 0;
     failures += selftest_line("dynamic page mapping", vmm_self_test()) != 0;
@@ -1480,7 +1494,7 @@ static void run_command(const char *command)
             "  help         Afficher cette liste\n  about        Afficher les informations systeme\n  statics      Ouvrir le moniteur CPU et RAM\n  language     Afficher ou changer la langue\n  clear        Effacer l'ecran\n  reboot       Redemarrer le systeme\n"));
         console_write("\nFilesystem: ls dir cd pwd mkdir touch write append cat type open rm rmdir mount df\n");
         console_write("Persistent: pmkfs pmount pls pwrite pcat prm\n");
-        console_write("System:     date uptime ticks sleep meminfo free devices lspci blockdev drivers features bootinfo\n");
+        console_write("System:     date uptime ticks sleep meminfo free devices lspci blockdev drivers features bootinfo netinfo\n");
         console_write("Kernel:     ps dmesg random crc32 selftest heaptest pagetest synctest faulttest\n");
         console_write("Debug:      cpuinfo firmwareinfo acpiinfo acpitables madtinfo ioapicinfo mcfginfo\n");
         console_write("Firmware:   hpetinfo smbiosinfo smpinfo\n");
@@ -1669,6 +1683,8 @@ static void run_command(const char *command)
         command_drivers();
     } else if (text_equals(command, "features")) {
         command_features();
+    } else if (text_equals(command, "netinfo")) {
+        command_netinfo();
     } else if (text_equals(command, "version")) {
         console_write(MVH_KERNEL_NAME " " MVH_KERNEL_VERSION " " MVH_KERNEL_ARCH " " MVH_KERNEL_FORMAT "\n");
     } else if (text_equals(command, "uname") || text_equals(command, "uname -a")) {
@@ -1725,6 +1741,8 @@ void kernel_main(uint64_t memory_kib, uint64_t boot_data)
                     bootinfo_current()->random_seed_size, estimated_bits);
     }
     block_init();
+    net_arp_cache_init();
+    net_route_init();
     ata_count = ata_init();
     ASSERT(hal_timer_frequency() != 0u);
     klog_set_console(1u);

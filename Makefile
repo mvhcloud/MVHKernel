@@ -9,9 +9,12 @@ OBJECTS += $(BUILD)/apic.o
 DEPS += $(BUILD)/apic.d
 OBJECTS += $(BUILD)/ata.o
 DEPS += $(BUILD)/ata.d
+OBJECTS += $(BUILD)/net.o
+DEPS += $(BUILD)/net.d
 HOST_TEST := $(BUILD)/host-storage-test
 HOST_UTIL_TEST := $(BUILD)/host-util-test
 HOST_MVHFS_TEST := $(BUILD)/host-mvhfs-test
+HOST_NET_TEST := $(BUILD)/host-net-test
 
 .DELETE_ON_ERROR:
 
@@ -38,6 +41,9 @@ $(BUILD)/apic.o: src/arch/apic.c | $(BUILD)
 	$(CC) $(CFLAGS) -c $< -o $@
 
 $(BUILD)/ata.o: src/storage/ata.c | $(BUILD)
+	$(CC) $(CFLAGS) -c $< -o $@
+
+$(BUILD)/net.o: src/net/net.c | $(BUILD)
 	$(CC) $(CFLAGS) -c $< -o $@
 
 $(BUILD)/hal.o: src/hal/hal.c | $(BUILD)
@@ -136,10 +142,14 @@ $(HOST_UTIL_TEST): tests/host_util_test.c src/core/util.c | $(BUILD)
 $(HOST_MVHFS_TEST): tests/host_mvhfs_test.c src/fs/mvhfs.c src/core/crc32.c src/core/sync.c src/storage/block.c | $(BUILD)
 	$(CC) -std=c11 -Wall -Wextra -Werror -O2 -Iinclude $^ -o $@
 
-host-test: $(HOST_TEST) $(HOST_UTIL_TEST) $(HOST_MVHFS_TEST)
+$(HOST_NET_TEST): tests/host_net_test.c src/net/net.c | $(BUILD)
+	$(CC) -std=c11 -Wall -Wextra -Werror -O2 -Iinclude $^ -o $@
+
+host-test: $(HOST_TEST) $(HOST_UTIL_TEST) $(HOST_MVHFS_TEST) $(HOST_NET_TEST)
 	./$(HOST_TEST)
 	./$(HOST_UTIL_TEST)
 	./$(HOST_MVHFS_TEST)
+	./$(HOST_NET_TEST)
 
 iso: $(BUILD)/kernel.elf config/grub.cfg
 	mkdir -p $(BUILD)/iso/boot/grub
