@@ -21,11 +21,11 @@ ap_trampoline_start:
     mov $0x7000, %sp
     mov $0x0800, %ax
     mov %ax, %ds
-    lgdtl (AP_GDT + 24)
+    lgdtl (AP_GDT + 32)
     mov %cr0, %eax
     or $1, %eax
     mov %eax, %cr0
-    ljmpl $0x08, $(AP_BASE + AP_PROTECTED)
+    ljmpl $0x18, $(AP_BASE + AP_PROTECTED)
 
 .org AP_PROTECTED
 .code32
@@ -81,7 +81,8 @@ ap_trampoline_entry:
 ap_trampoline_gdt:
     .quad 0x0000000000000000
     .quad 0x00AF9A000000FFFF
-    .quad 0x00AF92000000FFFF
+    .quad 0x00CF92000000FFFF
+    .quad 0x00CF9A000000FFFF
 ap_trampoline_gdt_end:
 ap_trampoline_gdt_pointer:
     .word ap_trampoline_gdt_end - ap_trampoline_gdt - 1
