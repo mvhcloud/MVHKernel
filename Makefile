@@ -5,6 +5,8 @@ BUILD := build
 CFLAGS := -m64 -mno-red-zone -std=c11 -ffreestanding -fno-pie -fstack-protector-strong -mstack-protector-guard=global -fno-builtin -fno-unwind-tables -fno-asynchronous-unwind-tables -fno-omit-frame-pointer -Wall -Wextra -Werror -O2 -MMD -MP -Iinclude
 OBJECTS := $(BUILD)/boot32.o $(BUILD)/entry64.o $(BUILD)/interrupt64.o $(BUILD)/interrupt.o $(BUILD)/hal.o $(BUILD)/bootinfo.o $(BUILD)/acpi.o $(BUILD)/smbios.o $(BUILD)/log.o $(BUILD)/panic.o $(BUILD)/stack_guard.o $(BUILD)/util.o $(BUILD)/crc32.o $(BUILD)/random.o $(BUILD)/sync.o $(BUILD)/device.o $(BUILD)/pmm.o $(BUILD)/vmm.o $(BUILD)/heap.o $(BUILD)/task.o $(BUILD)/kernel.o $(BUILD)/vga.o $(BUILD)/serial.o $(BUILD)/keyboard.o $(BUILD)/cpu.o $(BUILD)/rtc.o $(BUILD)/pci.o $(BUILD)/timer.o $(BUILD)/ramfs.o $(BUILD)/vfs.o $(BUILD)/mvhfs.o $(BUILD)/block.o
 DEPS := $(OBJECTS:.o=.d)
+OBJECTS += $(BUILD)/apic.o
+DEPS += $(BUILD)/apic.d
 HOST_TEST := $(BUILD)/host-storage-test
 HOST_UTIL_TEST := $(BUILD)/host-util-test
 HOST_MVHFS_TEST := $(BUILD)/host-mvhfs-test
@@ -28,6 +30,9 @@ $(BUILD)/interrupt64.o: src/interrupt64.S | $(BUILD)
 	$(CC) -m64 -c $< -o $@
 
 $(BUILD)/interrupt.o: src/arch/interrupt.c | $(BUILD)
+	$(CC) $(CFLAGS) -c $< -o $@
+
+$(BUILD)/apic.o: src/arch/apic.c | $(BUILD)
 	$(CC) $(CFLAGS) -c $< -o $@
 
 $(BUILD)/hal.o: src/hal/hal.c | $(BUILD)

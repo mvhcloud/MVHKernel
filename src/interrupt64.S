@@ -4,15 +4,30 @@
 .type irq_timer_entry, @function
 .extern timer_ticks_value
 .extern interrupt_counters
+.extern interrupt_lapic_eoi
 irq_timer_entry:
     push %rax
     incq timer_ticks_value(%rip)
     incq interrupt_counters+256(%rip)
+    mov interrupt_lapic_eoi(%rip), %rax
+    test %rax, %rax
+    jz 1f
+    movl $0, (%rax)
+    jmp 2f
+1:
     mov $0x20, %al
     out %al, $0x20
+2:
     pop %rax
     iretq
 .size irq_timer_entry, . - irq_timer_entry
+
+.global irq_spurious_entry
+.type irq_spurious_entry, @function
+irq_spurious_entry:
+    incq interrupt_counters+2040(%rip)
+    iretq
+.size irq_spurious_entry, . - irq_spurious_entry
 
 .macro EXCEPTION_NO_ERROR vector
 .global exception_stub_\vector

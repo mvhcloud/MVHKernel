@@ -1,5 +1,6 @@
 #include <stdint.h>
 #include "mvh/acpi.h"
+#include "mvh/apic.h"
 #include "mvh/assert.h"
 #include "mvh/block.h"
 #include "mvh/bootinfo.h"
@@ -540,6 +541,7 @@ static void command_madtinfo(void)
 
 static void command_ioapicinfo(void)
 {
+    const apic_status_t *runtime = apic_status();
     acpi_ioapic_info_t ioapic;
     acpi_interrupt_override_t route;
     uint32_t index;
@@ -568,7 +570,20 @@ static void command_ioapicinfo(void)
         console_hex16(route.flags);
         console_write("\n");
     }
-    console_write("  Runtime state  : parsed, not activated\n");
+    console_write("  Runtime state  : ");
+    if (runtime->ioapic_enabled != 0u) {
+        console_write("active, timer GSI ");
+        console_number(runtime->timer_gsi);
+        console_write(", redirections ");
+        console_number(runtime->ioapic_redirections);
+        console_write("\n  Local APIC    : ID ");
+        console_number(runtime->local_apic_id);
+        console_write(" version ");
+        console_number(runtime->local_apic_version);
+        console_write(" at ");
+        console_hex64(runtime->local_apic_address);
+        console_write("\n  Legacy PIC    : disabled\n");
+    } else console_write("legacy PIC fallback active\n");
 }
 
 static void command_mcfginfo(void)
@@ -1739,6 +1754,9 @@ void kernel_main(uint64_t memory_kib, uint64_t boot_data)
         kernel_panic("virtual memory manager initialization failed");
     }
     klog_write("INFO", "paging protections and null guard initialized");
+    if (apic_init() == 0)
+        klog_write("INFO", "Local APIC and IOAPIC activated; legacy PIC disabled");
+    else klog_write("INFO", "APIC activation unavailable; legacy PIC remains active");
     if (heap_init() != 0) {
         kernel_panic("kernel heap initialization failed");
     }

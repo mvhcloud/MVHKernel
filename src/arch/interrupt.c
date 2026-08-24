@@ -23,6 +23,7 @@ volatile uint64_t interrupt_counters[256];
 static uint64_t spurious_interrupts;
 
 extern void irq_timer_entry(void);
+extern void irq_spurious_entry(void);
 extern void exception_stub_0(void);
 extern void exception_stub_1(void);
 extern void exception_stub_2(void);
@@ -114,6 +115,7 @@ void interrupt_init(void)
         idt_set((uint8_t)index, exception_stubs[index]);
     }
     idt_set(32u, irq_timer_entry);
+    idt_set(255u, irq_spurious_entry);
     pointer.limit = (uint16_t)(sizeof(idt) - 1u);
     pointer.base = (uint64_t)(uintptr_t)idt;
     __asm__ volatile ("lidt %0" : : "m"(pointer));
