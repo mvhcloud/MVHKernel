@@ -1,0 +1,19 @@
+#ifndef MVH_CONFIG_H
+#define MVH_CONFIG_H
+
+/* Central build-time feature policy for the 1.1 release series. */
+#define MVH_CONFIG_ARCH_X86_64 1
+#define MVH_CONFIG_DEBUG 0
+#define MVH_CONFIG_BOOTINFO_V2 1
+#define MVH_CONFIG_LEGACY_BOOT 1
+#define MVH_CONFIG_ACPI_HANDOFF 1
+#define MVH_CONFIG_ACPI_PARSER 1
+#define MVH_CONFIG_SMBIOS_HANDOFF 1
+#define MVH_CONFIG_SMBIOS_PARSER 1
+#define MVH_CONFIG_FRAMEBUFFER_HANDOFF 1
+#define MVH_CONFIG_RANDOM_SEED_HANDOFF 1
+#define MVH_CONFIG_SMP 1
+#define MVH_CONFIG_NETWORK 1
+#define MVH_CONFIG_USB 0
+
+#endif

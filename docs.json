@@ -1,0 +1,42 @@
+{
+  "$schema": "https://mintlify.com/docs.json",
+  "theme": "mint",
+  "name": "MVH Kernel",
+  "description": "Standalone x86_64 kernel documentation",
+  "colors": {
+    "primary": "#7657FF",
+    "light": "#29D7E8",
+    "dark": "#5938D8"
+  },
+  "navigation": {
+    "tabs": [
+      {
+        "tab": "Kernel",
+        "groups": [
+          {
+            "group": "Documentation",
+            "pages": ["README"]
+          }
+        ]
+      }
+    ]
+  },
+  "navbar": {
+    "links": [
+      {
+        "label": "Commands",
+        "href": "https://kernel.mvhcloud.com/"
+      }
+    ],
+    "primary": {
+      "type": "button",
+      "label": "Releases",
+      "href": "https://github.com/mvhcloud/MVHKernel/releases"
+    }
+  },
+  "footer": {
+    "socials": {
+      "github": "https://github.com/mvhcloud/MVHKernel"
+    }
+  }
+}
