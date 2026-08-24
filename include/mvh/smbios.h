@@ -38,6 +38,7 @@ int smbios_validate_entry_blob(const void *data, uint32_t size, smbios_info_t *r
 int smbios_parse_table_blob(const void *data, uint32_t size, uint32_t announced,
                             smbios_info_t *result);
 int smbios_init(uint64_t entry_address);
+uint64_t smbios_discover_entry(void);
 const smbios_info_t *smbios_info(void);
 int smbios_self_test(void);
 

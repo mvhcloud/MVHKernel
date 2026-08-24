@@ -1692,6 +1692,7 @@ void kernel_main(uint64_t memory_kib, uint64_t boot_data)
     unsigned int length = 0;
     char input;
     int bootinfo_status = bootinfo_capture(memory_kib, boot_data);
+    uint64_t firmware_address;
     klog_init();
     hal_init();
     if (bootinfo_status != 0) {
@@ -1715,12 +1716,22 @@ void kernel_main(uint64_t memory_kib, uint64_t boot_data)
         if (acpi_init(bootinfo_current()->acpi_rsdp_address) == 0)
             klog_write("INFO", "ACPI tables validated and registered");
         else klog_write("WARN", "ACPI handoff was rejected; legacy hardware path remains active");
-    } else klog_write("INFO", "ACPI handoff unavailable; legacy hardware path remains active");
+    } else {
+        firmware_address = acpi_discover_rsdp();
+        if (firmware_address != 0u && acpi_init(firmware_address) == 0)
+            klog_write("INFO", "ACPI RSDP discovered in firmware memory and tables registered");
+        else klog_write("INFO", "ACPI unavailable; legacy hardware path remains active");
+    }
     if ((bootinfo_current()->flags & MVH_BOOTINFO_FLAG_SMBIOS) != 0u) {
         if (smbios_init(bootinfo_current()->smbios_address) == 0)
             klog_write("INFO", "SMBIOS structures validated and indexed");
         else klog_write("WARN", "SMBIOS handoff was rejected");
-    } else klog_write("INFO", "SMBIOS handoff unavailable");
+    } else {
+        firmware_address = smbios_discover_entry();
+        if (firmware_address != 0u && smbios_init(firmware_address) == 0)
+            klog_write("INFO", "SMBIOS entry discovered in firmware memory and indexed");
+        else klog_write("INFO", "SMBIOS unavailable");
+    }
     klog_write("INFO", "hardware abstraction layer initialized");
     pmm_init(memory_kib, (uintptr_t)&__kernel_end);
     klog_write("INFO", "physical memory manager initialized");

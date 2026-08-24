@@ -41,11 +41,18 @@ jobs:
         if: steps.cadence.outputs.run == 'true'
         run: |
           sudo apt-get update
-          sudo apt-get install --no-install-recommends -y grub-pc-bin mtools xorriso
+          sudo apt-get install --no-install-recommends -y grub-pc-bin mtools qemu-system-x86 xorriso
 
       - name: Build bootable QEMU image
         if: steps.cadence.outputs.run == 'true'
         run: make iso
+
+      - name: Boot QEMU compatibility matrix
+        if: steps.cadence.outputs.run == 'true'
+        run: |
+          scripts/qemu-smoke.sh build/mvh-kernel.iso pc 128 1
+          scripts/qemu-smoke.sh build/mvh-kernel.iso pc 512 2
+          scripts/qemu-smoke.sh build/mvh-kernel.iso q35 1024 4
 
       - name: Run native tests
         if: steps.cadence.outputs.run == 'true'

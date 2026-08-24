@@ -213,6 +213,22 @@ int smbios_init(uint64_t entry_address)
     return 0;
 }
 
+uint64_t smbios_discover_entry(void)
+{
+    uint64_t address;
+    smbios_info_t parsed;
+    for (address = 0xF0000u; address + 32u <= 0x100000u; address += 16u) {
+        const uint8_t *entry = (const uint8_t *)(uintptr_t)address;
+        uint32_t size;
+        if (bytes_equal(entry, "_SM3_", 5u)) size = entry[6u];
+        else if (bytes_equal(entry, "_SM_", 4u)) size = entry[5u];
+        else continue;
+        if (size >= 16u && size <= 64u && address + size <= 0x100000u &&
+            smbios_validate_entry_blob(entry, size, &parsed) == 0) return address;
+    }
+    return 0u;
+}
+
 const smbios_info_t *smbios_info(void)
 {
     return &current;

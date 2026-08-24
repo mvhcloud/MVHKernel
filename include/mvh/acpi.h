@@ -101,6 +101,7 @@ int acpi_checksum_valid(const void *data, uint32_t length);
 int acpi_validate_rsdp_blob(const void *data, uint32_t size, acpi_rsdp_info_t *result);
 int acpi_validate_sdt_blob(const void *data, uint32_t available, const char *signature);
 int acpi_init(uint64_t rsdp_address);
+uint64_t acpi_discover_rsdp(void);
 const acpi_status_t *acpi_status(void);
 uint32_t acpi_table_count(void);
 int acpi_table_info(uint32_t index, acpi_table_info_t *result);

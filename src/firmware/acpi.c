@@ -73,6 +73,36 @@ static int mapped_range(uint64_t address, uint32_t length)
            length <= MVH_BOOTINFO_IDENTITY_LIMIT - address;
 }
 
+static uint64_t scan_rsdp_range(uint64_t start, uint64_t end)
+{
+    uint64_t address;
+    start = (start + 15u) & ~15ull;
+    for (address = start; address + RSDP_V1_SIZE <= end; address += 16u) {
+        const acpi_rsdp_t *candidate = (const acpi_rsdp_t *)(uintptr_t)address;
+        uint32_t length = RSDP_V1_SIZE;
+        if (!bytes_equal(candidate->signature, "RSD PTR ", 8u) ||
+            !acpi_checksum_valid(candidate, RSDP_V1_SIZE)) continue;
+        if (candidate->revision >= 2u) {
+            length = candidate->length;
+            if (length < RSDP_V2_SIZE || length > 4096u || address + length > end ||
+                !acpi_checksum_valid(candidate, length)) continue;
+        }
+        return address;
+    }
+    return 0u;
+}
+
+uint64_t acpi_discover_rsdp(void)
+{
+    uint16_t ebda_segment = *(const volatile uint16_t *)(uintptr_t)0x40Eu;
+    uint64_t ebda = (uint64_t)ebda_segment << 4u;
+    uint64_t result = 0u;
+    if (ebda >= 0x80000u && ebda < 0xA0000u)
+        result = scan_rsdp_range(ebda, ebda + 1024u);
+    if (result == 0u) result = scan_rsdp_range(0xE0000u, 0x100000u);
+    return result;
+}
+
 int acpi_checksum_valid(const void *data, uint32_t length)
 {
     const uint8_t *bytes = (const uint8_t *)data;
