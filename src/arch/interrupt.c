@@ -22,6 +22,14 @@ static idt_entry_t idt[256];
 volatile uint64_t interrupt_counters[256];
 static uint64_t spurious_interrupts;
 
+void interrupt_load_idt(void)
+{
+    idt_pointer_t pointer;
+    pointer.limit = (uint16_t)(sizeof(idt) - 1u);
+    pointer.base = (uint64_t)(uintptr_t)idt;
+    __asm__ volatile ("lidt %0" : : "m"(pointer));
+}
+
 extern void irq_timer_entry(void);
 extern void irq_spurious_entry(void);
 extern void exception_stub_0(void);
@@ -98,7 +106,6 @@ static void pic_remap(void)
 
 void interrupt_init(void)
 {
-    idt_pointer_t pointer;
     uint16_t index;
     interrupt_disable();
     for (index = 0u; index < 256u; index++) {
@@ -116,9 +123,7 @@ void interrupt_init(void)
     }
     idt_set(32u, irq_timer_entry);
     idt_set(255u, irq_spurious_entry);
-    pointer.limit = (uint16_t)(sizeof(idt) - 1u);
-    pointer.base = (uint64_t)(uintptr_t)idt;
-    __asm__ volatile ("lidt %0" : : "m"(pointer));
+    interrupt_load_idt();
     pic_remap();
     io_out8(0x21u, 0xFEu);
     io_out8(0xA1u, 0xFFu);

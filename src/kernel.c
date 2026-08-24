@@ -25,6 +25,7 @@
 #include "mvh/random.h"
 #include "mvh/serial.h"
 #include "mvh/smbios.h"
+#include "mvh/smp.h"
 #include "mvh/sync.h"
 #include "mvh/task.h"
 #include "mvh/vfs.h"
@@ -338,7 +339,8 @@ static void show_cpu(void)
     cpu_capabilities_t capabilities;
     cpu_vendor(vendor);
     cpu_brand(brand);
-    logical_cpus = cpu_logical_count();
+    logical_cpus = smp_online_count();
+    if (logical_cpus == 0u) logical_cpus = cpu_logical_count();
     cpu_get_info(&info);
     cpu_get_capabilities(&capabilities);
     console_colored("+---------------------- CPU ----------------------+\n", 0x0Eu);
@@ -411,8 +413,14 @@ static void show_cpu(void)
     for (core = 0; core < logical_cpus; core++) {
         console_write("| Core ");
         console_number(core);
-        console_write(core == 0u ? " : RUNNING     boot processor\n"
-                                 : " : DETECTED    not started\n");
+        {
+            const smp_cpu_t *runtime_cpu = smp_cpu_info(core);
+            if (runtime_cpu != 0 && runtime_cpu->online != 0u)
+                console_write(runtime_cpu->bootstrap != 0u ?
+                              " : RUNNING     boot processor\n" :
+                              " : RUNNING     application processor\n");
+            else console_write(" : DETECTED    offline\n");
+        }
     }
     console_colored("+-------------------------------------------------+\n", 0x0Eu);
 }
@@ -647,22 +655,28 @@ static void command_mcfginfo(void)
 
 static void command_smpinfo(void)
 {
-    acpi_cpu_info_t cpu;
+    const smp_cpu_t *cpu;
     uint32_t index;
-    console_colored("Firmware CPU topology\n", 0x0Eu);
-    console_write("  CPUs described : ");
+    console_colored("SMP runtime topology\n", 0x0Eu);
+    console_write("  Firmware CPUs  : ");
     console_number(acpi_cpu_count());
+    console_write("\n  Managed CPUs   : ");
+    console_number(smp_cpu_count());
+    console_write("\n  Online CPUs    : ");
+    console_number(smp_online_count());
     console_write("\n");
-    for (index = 0u; index < acpi_cpu_count(); index++) {
-        if (acpi_cpu_info(index, &cpu) != 0) continue;
-        console_write("  CPU uid=");
-        console_number(cpu.processor_uid);
+    for (index = 0u; index < smp_cpu_count(); index++) {
+        cpu = smp_cpu_info(index);
+        if (cpu == 0) continue;
+        console_write("  CPU logical=");
+        console_number(cpu->logical_id);
+        console_write(" uid=");
+        console_number(cpu->processor_uid);
         console_write(" apic-id=");
-        console_number(cpu.apic_id);
-        console_write(cpu.x2apic != 0u ? " x2APIC" : " xAPIC");
-        console_write(cpu.enabled != 0u ? " enabled" :
-                      (cpu.online_capable != 0u ? " online-capable" : " disabled"));
-        console_write(index == 0u ? " BSP-running\n" : " AP-not-started\n");
+        console_number(cpu->apic_id);
+        console_write(cpu->x2apic != 0u ? " x2APIC" : " xAPIC");
+        console_write(cpu->online != 0u ? " online" : " offline");
+        console_write(cpu->bootstrap != 0u ? " BSP\n" : " AP\n");
     }
 }
 
@@ -1835,9 +1849,16 @@ void kernel_main(uint64_t memory_kib, uint64_t boot_data)
     if (virtio_blk_init() == 0)
         klog_write("INFO", "VirtIO block queue initialized and writable disk registered");
     else klog_write("INFO", "VirtIO transitional block device unavailable");
-    if (apic_init() == 0)
+    if (apic_init() == 0) {
         klog_write("INFO", "Local APIC and IOAPIC activated; legacy PIC disabled");
-    else klog_write("INFO", "APIC activation unavailable; legacy PIC remains active");
+        if (smp_init() == 0) {
+            console_write("[INFO] SMP online CPUs: ");
+            console_number(smp_online_count());
+            console_write(" of ");
+            console_number(smp_cpu_count());
+            console_write(" managed\n");
+        } else klog_write("WARN", "SMP startup unavailable; BSP remains active");
+    } else klog_write("INFO", "APIC activation unavailable; legacy PIC remains active");
     if (heap_init() != 0) {
         kernel_panic("kernel heap initialization failed");
     }

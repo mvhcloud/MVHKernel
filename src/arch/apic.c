@@ -5,6 +5,7 @@
 #include "mvh/interrupt.h"
 #include "mvh/io.h"
 #include "mvh/memory.h"
+#include "mvh/timer.h"
 
 #define IA32_APIC_BASE 0x1Bu
 #define IA32_APIC_BASE_ENABLE (1ull << 11u)
@@ -14,6 +15,9 @@
 #define LAPIC_SPURIOUS 0xF0u
 #define LAPIC_SOFTWARE_ENABLE (1u << 8u)
 #define LAPIC_SPURIOUS_VECTOR 0xFFu
+#define LAPIC_ICR_LOW 0x300u
+#define LAPIC_ICR_HIGH 0x310u
+#define LAPIC_ICR_DELIVERY_PENDING (1u << 12u)
 #define IOAPIC_REGISTER_SELECT 0x00u
 #define IOAPIC_REGISTER_WINDOW 0x10u
 #define IOAPIC_ID 0x00u
@@ -44,6 +48,24 @@ static void lapic_write(uint32_t offset, uint32_t value)
 {
     lapic[offset / 4u] = value;
     (void)lapic[LAPIC_ID / 4u];
+}
+
+static int lapic_wait_delivery(void)
+{
+    uint32_t timeout;
+    for (timeout = 0u; timeout < 1000000u; timeout++) {
+        if ((lapic_read(LAPIC_ICR_LOW) & LAPIC_ICR_DELIVERY_PENDING) == 0u) return 0;
+        __asm__ volatile ("pause");
+    }
+    return -1;
+}
+
+static int lapic_send_ipi(uint32_t apic_id, uint32_t command)
+{
+    if (lapic == 0 || apic_id > 255u || lapic_wait_delivery() != 0) return -1;
+    lapic_write(LAPIC_ICR_HIGH, apic_id << 24u);
+    lapic_write(LAPIC_ICR_LOW, command);
+    return lapic_wait_delivery();
 }
 
 static uint32_t ioapic_read(uint8_t reg)
@@ -157,4 +179,24 @@ const apic_status_t *apic_status(void)
 void apic_eoi(void)
 {
     if (interrupt_lapic_eoi != 0) *interrupt_lapic_eoi = 0u;
+}
+
+void apic_init_local_cpu(void)
+{
+    uint64_t apic_base;
+    if (lapic == 0 || cpu_rdmsr(IA32_APIC_BASE, &apic_base) == 0u) return;
+    cpu_wrmsr(IA32_APIC_BASE, apic_base | IA32_APIC_BASE_ENABLE);
+    lapic_write(LAPIC_SPURIOUS, LAPIC_SOFTWARE_ENABLE | LAPIC_SPURIOUS_VECTOR);
+}
+
+int apic_start_application_processor(uint32_t apic_id, uint8_t startup_vector)
+{
+    if (startup_vector == 0u) return -1;
+    if (lapic_send_ipi(apic_id, 0x0000C500u) != 0) return -1;
+    timer_sleep_ms(10u);
+    if (lapic_send_ipi(apic_id, 0x00008500u) != 0) return -1;
+    timer_sleep_ms(10u);
+    if (lapic_send_ipi(apic_id, 0x00000600u | startup_vector) != 0) return -1;
+    timer_sleep_ms(1u);
+    return lapic_send_ipi(apic_id, 0x00000600u | startup_vector);
 }

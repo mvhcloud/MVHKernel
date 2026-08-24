@@ -3,22 +3,15 @@ LD := ld
 
 BUILD := build
 CFLAGS := -m64 -mno-red-zone -std=c11 -ffreestanding -fno-pie -fstack-protector-strong -mstack-protector-guard=global -fno-builtin -fno-unwind-tables -fno-asynchronous-unwind-tables -fno-omit-frame-pointer -Wall -Wextra -Werror -O2 -MMD -MP -Iinclude
-OBJECTS := $(BUILD)/boot32.o $(BUILD)/entry64.o $(BUILD)/interrupt64.o $(BUILD)/interrupt.o $(BUILD)/hal.o $(BUILD)/bootinfo.o $(BUILD)/acpi.o $(BUILD)/smbios.o $(BUILD)/log.o $(BUILD)/panic.o $(BUILD)/stack_guard.o $(BUILD)/util.o $(BUILD)/crc32.o $(BUILD)/random.o $(BUILD)/sync.o $(BUILD)/device.o $(BUILD)/pmm.o $(BUILD)/vmm.o $(BUILD)/heap.o $(BUILD)/task.o $(BUILD)/kernel.o $(BUILD)/vga.o $(BUILD)/serial.o $(BUILD)/keyboard.o $(BUILD)/cpu.o $(BUILD)/rtc.o $(BUILD)/pci.o $(BUILD)/timer.o $(BUILD)/ramfs.o $(BUILD)/vfs.o $(BUILD)/mvhfs.o $(BUILD)/block.o
-DEPS := $(OBJECTS:.o=.d)
-OBJECTS += $(BUILD)/apic.o
-DEPS += $(BUILD)/apic.d
-OBJECTS += $(BUILD)/ata.o
-DEPS += $(BUILD)/ata.d
-OBJECTS += $(BUILD)/net.o
-DEPS += $(BUILD)/net.d
-OBJECTS += $(BUILD)/hpet.o
-DEPS += $(BUILD)/hpet.d
-OBJECTS += $(BUILD)/framebuffer.o
-DEPS += $(BUILD)/framebuffer.d
-OBJECTS += $(BUILD)/input.o $(BUILD)/desktop.o
-DEPS += $(BUILD)/input.d $(BUILD)/desktop.d
-OBJECTS += $(BUILD)/virtio_blk.o
-DEPS += $(BUILD)/virtio_blk.d
+C_SOURCES := $(wildcard src/*.c src/*/*.c)
+ASM_SOURCES := $(wildcard src/*.S src/*/*.S)
+C_OBJECTS := $(addprefix $(BUILD)/,$(notdir $(C_SOURCES:.c=.o)))
+ASM_OBJECTS := $(addprefix $(BUILD)/,$(notdir $(ASM_SOURCES:.S=.o)))
+OBJECTS := $(ASM_OBJECTS) $(C_OBJECTS)
+DEPS := $(C_OBJECTS:.o=.d)
+
+vpath %.c $(sort $(dir $(C_SOURCES)))
+vpath %.S $(sort $(dir $(ASM_SOURCES)))
 HOST_TEST := $(BUILD)/host-storage-test
 HOST_UTIL_TEST := $(BUILD)/host-util-test
 HOST_MVHFS_TEST := $(BUILD)/host-mvhfs-test
@@ -33,125 +26,11 @@ all: $(BUILD)/kernel.elf
 $(BUILD):
 	mkdir -p $(BUILD)
 
-$(BUILD)/boot32.o: src/boot32.S | $(BUILD)
+$(BUILD)/%.o: %.c | $(BUILD)
+	$(CC) $(CFLAGS) -c $< -o $@
+
+$(BUILD)/%.o: %.S | $(BUILD)
 	$(CC) -m64 -c $< -o $@
-
-$(BUILD)/entry64.o: src/entry64.S | $(BUILD)
-	$(CC) -m64 -c $< -o $@
-
-$(BUILD)/interrupt64.o: src/interrupt64.S | $(BUILD)
-	$(CC) -m64 -c $< -o $@
-
-$(BUILD)/interrupt.o: src/arch/interrupt.c | $(BUILD)
-	$(CC) $(CFLAGS) -c $< -o $@
-
-$(BUILD)/apic.o: src/arch/apic.c | $(BUILD)
-	$(CC) $(CFLAGS) -c $< -o $@
-
-$(BUILD)/ata.o: src/storage/ata.c | $(BUILD)
-	$(CC) $(CFLAGS) -c $< -o $@
-
-$(BUILD)/net.o: src/net/net.c | $(BUILD)
-	$(CC) $(CFLAGS) -c $< -o $@
-
-$(BUILD)/hpet.o: src/drivers/hpet.c | $(BUILD)
-	$(CC) $(CFLAGS) -c $< -o $@
-
-$(BUILD)/framebuffer.o: src/drivers/framebuffer.c | $(BUILD)
-	$(CC) $(CFLAGS) -c $< -o $@
-
-$(BUILD)/input.o: src/device/input.c | $(BUILD)
-	$(CC) $(CFLAGS) -c $< -o $@
-
-$(BUILD)/desktop.o: src/ui/desktop.c | $(BUILD)
-	$(CC) $(CFLAGS) -c $< -o $@
-
-$(BUILD)/virtio_blk.o: src/storage/virtio_blk.c | $(BUILD)
-	$(CC) $(CFLAGS) -c $< -o $@
-
-$(BUILD)/hal.o: src/hal/hal.c | $(BUILD)
-	$(CC) $(CFLAGS) -c $< -o $@
-
-$(BUILD)/bootinfo.o: src/core/bootinfo.c | $(BUILD)
-	$(CC) $(CFLAGS) -c $< -o $@
-
-$(BUILD)/acpi.o: src/firmware/acpi.c | $(BUILD)
-	$(CC) $(CFLAGS) -c $< -o $@
-
-$(BUILD)/smbios.o: src/firmware/smbios.c | $(BUILD)
-	$(CC) $(CFLAGS) -c $< -o $@
-
-$(BUILD)/log.o: src/core/log.c | $(BUILD)
-	$(CC) $(CFLAGS) -c $< -o $@
-
-$(BUILD)/panic.o: src/core/panic.c | $(BUILD)
-	$(CC) $(CFLAGS) -c $< -o $@
-
-$(BUILD)/stack_guard.o: src/core/stack_guard.c | $(BUILD)
-	$(CC) $(CFLAGS) -c $< -o $@
-
-$(BUILD)/util.o: src/core/util.c | $(BUILD)
-	$(CC) $(CFLAGS) -c $< -o $@
-
-$(BUILD)/crc32.o: src/core/crc32.c | $(BUILD)
-	$(CC) $(CFLAGS) -c $< -o $@
-
-$(BUILD)/random.o: src/core/random.c | $(BUILD)
-	$(CC) $(CFLAGS) -c $< -o $@
-
-$(BUILD)/sync.o: src/core/sync.c | $(BUILD)
-	$(CC) $(CFLAGS) -c $< -o $@
-
-$(BUILD)/device.o: src/device/device.c | $(BUILD)
-	$(CC) $(CFLAGS) -c $< -o $@
-
-$(BUILD)/pmm.o: src/memory/pmm.c | $(BUILD)
-	$(CC) $(CFLAGS) -c $< -o $@
-
-$(BUILD)/vmm.o: src/memory/vmm.c | $(BUILD)
-	$(CC) $(CFLAGS) -c $< -o $@
-
-$(BUILD)/heap.o: src/memory/heap.c | $(BUILD)
-	$(CC) $(CFLAGS) -c $< -o $@
-
-$(BUILD)/task.o: src/task/task.c | $(BUILD)
-	$(CC) $(CFLAGS) -c $< -o $@
-
-$(BUILD)/kernel.o: src/kernel.c | $(BUILD)
-	$(CC) $(CFLAGS) -c $< -o $@
-
-$(BUILD)/vga.o: src/drivers/vga.c | $(BUILD)
-	$(CC) $(CFLAGS) -c $< -o $@
-
-$(BUILD)/serial.o: src/drivers/serial.c | $(BUILD)
-	$(CC) $(CFLAGS) -c $< -o $@
-
-$(BUILD)/keyboard.o: src/drivers/keyboard.c | $(BUILD)
-	$(CC) $(CFLAGS) -c $< -o $@
-
-$(BUILD)/cpu.o: src/drivers/cpu.c | $(BUILD)
-	$(CC) $(CFLAGS) -c $< -o $@
-
-$(BUILD)/rtc.o: src/drivers/rtc.c | $(BUILD)
-	$(CC) $(CFLAGS) -c $< -o $@
-
-$(BUILD)/pci.o: src/drivers/pci.c | $(BUILD)
-	$(CC) $(CFLAGS) -c $< -o $@
-
-$(BUILD)/timer.o: src/drivers/timer.c | $(BUILD)
-	$(CC) $(CFLAGS) -c $< -o $@
-
-$(BUILD)/ramfs.o: src/fs/ramfs.c | $(BUILD)
-	$(CC) $(CFLAGS) -c $< -o $@
-
-$(BUILD)/vfs.o: src/fs/vfs.c | $(BUILD)
-	$(CC) $(CFLAGS) -c $< -o $@
-
-$(BUILD)/mvhfs.o: src/fs/mvhfs.c | $(BUILD)
-	$(CC) $(CFLAGS) -c $< -o $@
-
-$(BUILD)/block.o: src/storage/block.c | $(BUILD)
-	$(CC) $(CFLAGS) -c $< -o $@
 
 $(BUILD)/kernel.elf: $(OBJECTS) linker.ld
 	$(LD) -m elf_x86_64 -T linker.ld -nostdlib -o $@ $(OBJECTS)

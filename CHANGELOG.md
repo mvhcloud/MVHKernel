@@ -1,5 +1,17 @@
 # MVH Kernel Release Log
 
+## 1.1.9 Daily
+
+- Added a low-memory x86 startup trampoline and INIT-SIPI-SIPI application-processor boot sequence
+- Added per-CPU kernel stacks, GS-based CPU-local records, online state and AP idle loops
+- Added Local APIC IPI delivery, per-CPU LAPIC enablement and reusable IDT loading
+- Extended `smpinfo`, CPU diagnostics and QEMU validation to require every configured vCPU online
+- Added a root Mintlify `docs.json` configuration without a documentation subdirectory
+- Added a transactional release updater for the local MVH Betriebsystem project
+- Replaced repetitive kernel build rules with automatically discovered architecture and subsystem sources
+- Promoted the release branch name from `agent/...` to `release/1.1.9`
+- Retained the existing desktop without further UI expansion
+
 ## 1.1.8 Daily
 
 - Added a Multiboot bootstrap that enters x86_64 Long Mode and a bootable GRUB ISO image

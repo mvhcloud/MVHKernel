@@ -31,7 +31,7 @@ try {
         throw "QEMU exited with code $($process.ExitCode): $(Get-Content -Raw $errorLog)"
     }
     $serial = Get-Content -Raw -LiteralPath $serialLog
-    foreach ($marker in @("MVH Kernel 1.1.8/2 build", "MVH kernel ready", "mvh>")) {
+    foreach ($marker in @("MVH Kernel 1.1.9 build", "SMP online CPUs: $Cpus of $Cpus managed", "MVH kernel ready", "mvh>")) {
         if (-not $serial.Contains($marker)) { throw "Missing serial marker: $marker" }
     }
     Write-Output "QEMU smoke passed: machine=$Machine memory=${MemoryMiB}MiB cpus=$Cpus"

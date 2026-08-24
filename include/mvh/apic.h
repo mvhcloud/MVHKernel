@@ -22,5 +22,7 @@ typedef struct {
 int apic_init(void);
 const apic_status_t *apic_status(void);
 void apic_eoi(void);
+void apic_init_local_cpu(void);
+int apic_start_application_processor(uint32_t apic_id, uint8_t startup_vector);
 
 #endif
