@@ -1874,6 +1874,8 @@ void kernel_main(uint64_t memory_kib, uint64_t boot_data)
     vfs_init();
     klog_write("INFO", "VFS mounted ramfs root");
     task_init(hal_ticks());
+    if (task_self_test() != 0) kernel_panic("cooperative scheduler self-test failed");
+    klog_write("INFO", "kernel thread context switch and round-robin scheduler self-test passed");
     register_platform_devices();
     klog_write("INFO", "device manager initialized");
     if (framebuffer_status()->active != 0u && boot_option_present("mvh.mode=setup"))
