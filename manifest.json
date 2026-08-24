@@ -19,6 +19,7 @@
   "drivers": [
     "vga-text-cursor",
     "serial-uart-16550",
+    "serial-uart-input-console",
     "ps2-keyboard-en-us",
     "x86-cpuid",
     "x86-fpu-xsave",
@@ -79,7 +80,8 @@
     "native-utility-api-coverage",
     "mvhfs-copy-on-write-persistent-filesystem",
     "mvhfs-dual-superblock-recovery",
-    "mvhfs-file-and-metadata-crc32"
+    "mvhfs-file-and-metadata-crc32",
+    "qemu-cold-reboot-persistence-validation"
   ],
   "memory": {
     "page_size": 4096,

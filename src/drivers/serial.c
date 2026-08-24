@@ -21,3 +21,20 @@ void serial_put(char value)
     }
     io_out8(COM1, (uint8_t)value);
 }
+
+int serial_has_data(void)
+{
+    return (io_in8(COM1 + 5u) & 0x01u) != 0u;
+}
+
+char serial_read(void)
+{
+    char value;
+    while (!serial_has_data()) {
+        __asm__ volatile ("pause");
+    }
+    value = (char)io_in8(COM1);
+    if (value == '\r') return '\n';
+    if ((uint8_t)value == 0x7Fu) return '\b';
+    return value;
+}

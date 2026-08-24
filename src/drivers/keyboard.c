@@ -1,6 +1,7 @@
 #include <stdint.h>
 #include "mvh/io.h"
 #include "mvh/keyboard.h"
+#include "mvh/serial.h"
 
 static const char normal_map[128] = {
     0, 27, '1', '2', '3', '4', '5', '6', '7', '8', '9', '0', '-', '=', '\b',
@@ -25,7 +26,9 @@ char keyboard_read_char(void)
     uint8_t released;
     char value;
     for (;;) {
+        if (serial_has_data()) return serial_read();
         if ((io_in8(0x64u) & 1u) == 0u) {
+            __asm__ volatile ("pause");
             continue;
         }
         scan_code = io_in8(0x60u);

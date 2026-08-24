@@ -54,6 +54,10 @@ jobs:
           scripts/qemu-smoke.sh build/mvh-kernel.iso pc 512 2
           scripts/qemu-smoke.sh build/mvh-kernel.iso q35 1024 4
 
+      - name: Verify persistent filesystem across QEMU reboot
+        if: steps.cadence.outputs.run == 'true'
+        run: scripts/qemu-persistence.sh build/mvh-kernel.iso
+
       - name: Run native tests
         if: steps.cadence.outputs.run == 'true'
         run: make host-test

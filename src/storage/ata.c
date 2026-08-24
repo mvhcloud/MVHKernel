@@ -102,9 +102,9 @@ static int ata_write(void *context, uint64_t lba, uint32_t count, const void *bu
         if (wait_data(device) != 0) goto fail;
         for (word = 0u; word < 256u; word++)
             io_out16(device->info.io_base, source[sector * 256u + word]);
-        io_out8((uint16_t)(device->info.io_base + 7u), ATA_CMD_CACHE_FLUSH);
-        if (wait_not_busy(device) < 0) goto fail;
     }
+    io_out8((uint16_t)(device->info.io_base + 7u), ATA_CMD_CACHE_FLUSH);
+    if (wait_not_busy(device) < 0) goto fail;
     spinlock_unlock(&device->lock);
     return 0;
 fail:
