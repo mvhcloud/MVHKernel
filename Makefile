@@ -11,6 +11,8 @@ OBJECTS += $(BUILD)/ata.o
 DEPS += $(BUILD)/ata.d
 OBJECTS += $(BUILD)/net.o
 DEPS += $(BUILD)/net.d
+OBJECTS += $(BUILD)/hpet.o
+DEPS += $(BUILD)/hpet.d
 HOST_TEST := $(BUILD)/host-storage-test
 HOST_UTIL_TEST := $(BUILD)/host-util-test
 HOST_MVHFS_TEST := $(BUILD)/host-mvhfs-test
@@ -44,6 +46,9 @@ $(BUILD)/ata.o: src/storage/ata.c | $(BUILD)
 	$(CC) $(CFLAGS) -c $< -o $@
 
 $(BUILD)/net.o: src/net/net.c | $(BUILD)
+	$(CC) $(CFLAGS) -c $< -o $@
+
+$(BUILD)/hpet.o: src/drivers/hpet.c | $(BUILD)
 	$(CC) $(CFLAGS) -c $< -o $@
 
 $(BUILD)/hal.o: src/hal/hal.c | $(BUILD)

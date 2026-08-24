@@ -11,6 +11,7 @@
 #include "mvh/device.h"
 #include "mvh/fs.h"
 #include "mvh/hal.h"
+#include "mvh/hpet.h"
 #include "mvh/interrupt.h"
 #include "mvh/log.h"
 #include "mvh/memory.h"
@@ -590,6 +591,7 @@ static void command_ioapicinfo(void)
 
 static void command_mcfginfo(void)
 {
+    const pci_status_t *runtime = pci_status();
     acpi_mcfg_segment_t segment;
     uint32_t index;
     console_colored("PCIe MCFG segments\n", 0x0Eu);
@@ -609,7 +611,14 @@ static void command_mcfginfo(void)
         console_number(segment.end_bus);
         console_write("\n");
     }
-    console_write("  Runtime state  : validated, ECAM inactive\n");
+    console_write("  Runtime state  : ");
+    console_write(runtime->ecam_enabled != 0u ? "ECAM active through remapped MMIO window\n" :
+                                               "legacy CF8/CFC fallback\n");
+    console_write("  Config reads   : ");
+    console_number(runtime->config_reads);
+    console_write("\n  Config writes  : ");
+    console_number(runtime->config_writes);
+    console_write("\n");
 }
 
 static void command_smpinfo(void)
@@ -636,6 +645,7 @@ static void command_smpinfo(void)
 static void command_hpetinfo(void)
 {
     const acpi_status_t *status = acpi_status();
+    const hpet_status_t *runtime = hpet_status();
     if (acpi_find_table("HPET", 0u) == 0) {
         console_write("HPET table is unavailable\n");
         return;
@@ -643,7 +653,18 @@ static void command_hpetinfo(void)
     console_colored("HPET firmware table\n", 0x0Eu);
     console_write("  MMIO address   : ");
     console_hex64(status->hpet_address);
-    console_write("\n  Runtime state  : parsed, not activated\n");
+    console_write("\n  Runtime state  : ");
+    if (runtime->enabled != 0u) {
+        console_write("active\n  Frequency      : ");
+        console_number(runtime->frequency_hz);
+        console_write(" Hz\n  Counter        : ");
+        console_number(hpet_ticks());
+        console_write("\n  Monotonic ns   : ");
+        console_number(hpet_nanoseconds());
+        console_write("\n  Timers         : ");
+        console_number(runtime->timer_count);
+        console_write(runtime->counter_64bit != 0u ? ", 64-bit counter\n" : ", 32-bit counter\n");
+    } else console_write("unavailable, PIT fallback\n");
 }
 
 static void console_optional_text(const char *text)
@@ -1778,6 +1799,10 @@ void kernel_main(uint64_t memory_kib, uint64_t boot_data)
         kernel_panic("virtual memory manager initialization failed");
     }
     klog_write("INFO", "paging protections and null guard initialized");
+    if (hpet_init() == 0) klog_write("INFO", "HPET monotonic counter activated");
+    else klog_write("INFO", "HPET unavailable; PIT remains the monotonic fallback");
+    if (pci_init() == 0) klog_write("INFO", "PCIe ECAM configuration access activated");
+    else klog_write("INFO", "PCIe ECAM unavailable; legacy PCI configuration remains active");
     if (apic_init() == 0)
         klog_write("INFO", "Local APIC and IOAPIC activated; legacy PIC disabled");
     else klog_write("INFO", "APIC activation unavailable; legacy PIC remains active");

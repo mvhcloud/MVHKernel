@@ -1,24 +1,89 @@
 #include <stdint.h>
+#include "mvh/acpi.h"
 #include "mvh/io.h"
+#include "mvh/memory.h"
 #include "mvh/pci.h"
+#include "mvh/sync.h"
+
+#define PCI_ECAM_WINDOW 0x50000000u
+
+static pci_status_t state;
+static spinlock_t config_lock;
+
+int pci_init(void)
+{
+    acpi_mcfg_segment_t segment;
+    uint8_t *bytes = (uint8_t *)&state;
+    uint32_t index;
+    for (index = 0u; index < sizeof(state); index++) bytes[index] = 0u;
+    spinlock_init(&config_lock);
+    if (acpi_mcfg_segment_info(0u, &segment) != 0) return -1;
+    state.ecam_available = 1u;
+    state.segment_group = segment.segment_group;
+    state.start_bus = segment.start_bus;
+    state.end_bus = segment.end_bus;
+    state.base_address = segment.base_address;
+    if (segment.segment_group != 0u) return -1;
+    state.ecam_enabled = 1u;
+    return 0;
+}
+
+const pci_status_t *pci_status(void)
+{
+    return &state;
+}
+
+static uint64_t ecam_address(uint8_t bus, uint8_t slot, uint8_t function, uint8_t offset)
+{
+    return state.base_address + ((uint64_t)(bus - state.start_bus) << 20u) +
+           ((uint64_t)slot << 15u) + ((uint64_t)function << 12u) + (offset & 0xFCu);
+}
 
 uint32_t pci_config_read32(uint8_t bus, uint8_t slot, uint8_t function, uint8_t offset)
 {
+    uint32_t value;
+    if (state.ecam_enabled != 0u && bus >= state.start_bus && bus <= state.end_bus) {
+        uint64_t physical = ecam_address(bus, slot, function, offset);
+        spinlock_lock(&config_lock);
+        if (vmm_map_page(PCI_ECAM_WINDOW, (uintptr_t)(physical & ~0xFFFull),
+                         VMM_WRITABLE | VMM_CACHE_DISABLE | VMM_NO_EXECUTE) != 0) {
+            spinlock_unlock(&config_lock);
+            return 0xFFFFFFFFu;
+        }
+        value = *(volatile uint32_t *)(uintptr_t)(PCI_ECAM_WINDOW + (physical & 0xFFFu));
+        state.config_reads++;
+        spinlock_unlock(&config_lock);
+        return value;
+    }
     uint32_t address = 0x80000000u | ((uint32_t)bus << 16u) |
                        ((uint32_t)slot << 11u) | ((uint32_t)function << 8u) |
                        (offset & 0xFCu);
     io_out32(0xCF8u, address);
-    return io_in32(0xCFCu);
+    value = io_in32(0xCFCu);
+    state.config_reads++;
+    return value;
 }
 
 void pci_config_write32(uint8_t bus, uint8_t slot, uint8_t function, uint8_t offset,
                         uint32_t value)
 {
+    if (state.ecam_enabled != 0u && bus >= state.start_bus && bus <= state.end_bus) {
+        uint64_t physical = ecam_address(bus, slot, function, offset);
+        spinlock_lock(&config_lock);
+        if (vmm_map_page(PCI_ECAM_WINDOW, (uintptr_t)(physical & ~0xFFFull),
+                         VMM_WRITABLE | VMM_CACHE_DISABLE | VMM_NO_EXECUTE) == 0) {
+            *(volatile uint32_t *)(uintptr_t)(PCI_ECAM_WINDOW + (physical & 0xFFFu)) = value;
+            state.config_writes++;
+        }
+        spinlock_unlock(&config_lock);
+        return;
+    }
     uint32_t address = 0x80000000u | ((uint32_t)bus << 16u) |
                        ((uint32_t)slot << 11u) | ((uint32_t)function << 8u) |
                        (offset & 0xFCu);
     io_out32(0xCF8u, address);
     io_out32(0xCFCu, value);
+    state.config_writes++;
 }
 
 uint32_t pci_scan(pci_device_t *devices, uint32_t capacity)

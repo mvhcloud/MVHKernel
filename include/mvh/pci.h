@@ -20,6 +20,19 @@ typedef struct {
     uint8_t bar_is_64[6];
 } pci_device_t;
 
+typedef struct {
+    uint8_t ecam_available;
+    uint8_t ecam_enabled;
+    uint16_t segment_group;
+    uint8_t start_bus;
+    uint8_t end_bus;
+    uint64_t base_address;
+    uint64_t config_reads;
+    uint64_t config_writes;
+} pci_status_t;
+
+int pci_init(void);
+const pci_status_t *pci_status(void);
 uint32_t pci_scan(pci_device_t *devices, uint32_t capacity);
 uint32_t pci_config_read32(uint8_t bus, uint8_t slot, uint8_t function, uint8_t offset);
 void pci_config_write32(uint8_t bus, uint8_t slot, uint8_t function, uint8_t offset,
