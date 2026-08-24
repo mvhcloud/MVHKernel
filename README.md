@@ -1,6 +1,8 @@
 # MVH Kernel 1.1.9 Daily
 
-MVH Kernel is a standalone x86_64 kernel, not an operating-system distribution. Commands and integration details are maintained at [kernel.mvhcloud.com](https://kernel.mvhcloud.com/).
+MVH Kernel is a standalone x86_64 kernel, not an operating-system distribution.
+
+> The documentation website is currently unavailable.
 
 ## Capabilities
 
