@@ -4,6 +4,7 @@
 #include "mvh/cpu.h"
 #include "mvh/interrupt.h"
 #include "mvh/memory.h"
+#include "mvh/serial.h"
 #include "mvh/smp.h"
 
 #define AP_TRAMPOLINE_ADDRESS 0x8000u
@@ -22,6 +23,26 @@ extern uint8_t ap_trampoline_entry[];
 static smp_cpu_t cpus[SMP_MAX_CPUS];
 static volatile uint32_t discovered_cpus;
 static volatile uint32_t online_cpus;
+
+static void serial_number(uint32_t value)
+{
+    char digits[10];
+    uint32_t length = 0u;
+    if (value == 0u) {
+        serial_put('0');
+        return;
+    }
+    while (value != 0u) {
+        digits[length++] = (char)('0' + value % 10u);
+        value /= 10u;
+    }
+    while (length != 0u) serial_put(digits[--length]);
+}
+
+static void serial_text(const char *text)
+{
+    while (*text != '\0') serial_put(*text++);
+}
 
 static uintptr_t trampoline_offset(const uint8_t *symbol)
 {
@@ -118,6 +139,9 @@ int smp_init(void)
         trampoline_write64(ap_trampoline_stack, cpu->stack_top);
         trampoline_write64(ap_trampoline_cpu, (uint64_t)(uintptr_t)cpu);
         __atomic_thread_fence(__ATOMIC_SEQ_CST);
+        serial_text("[INFO] SMP starting APIC ID ");
+        serial_number(cpu->apic_id);
+        serial_text("\n");
         if (apic_start_application_processor(cpu->apic_id,
                                              (uint8_t)AP_TRAMPOLINE_VECTOR) != 0) continue;
         for (wait = 0u; wait < 10000000u &&
