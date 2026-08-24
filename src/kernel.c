@@ -10,6 +10,7 @@
 #include "mvh/crc32.h"
 #include "mvh/device.h"
 #include "mvh/desktop.h"
+#include "mvh/dma.h"
 #include "mvh/fs.h"
 #include "mvh/framebuffer.h"
 #include "mvh/hal.h"
@@ -1498,6 +1499,7 @@ static void command_selftest(void)
     failures += selftest_line("heap structure", heap_validate()) != 0;
     failures += selftest_line("null page protection", vmm_query_page(0u, 0, 0) != 0 ? 0 : -1) != 0;
     failures += selftest_line("dynamic page mapping", vmm_self_test()) != 0;
+    failures += selftest_line("DMA32 coherent and scatter/gather", dma_self_test()) != 0;
     failures += selftest_line("VFS root", vfs_read("/etc/version", &data, &size) == 0 &&
                               size != 0u ? 0 : -1) != 0;
     failures += selftest_line("device registry", device_count() >= 11u ? 0 : -1) != 0;
