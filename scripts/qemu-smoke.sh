@@ -19,7 +19,7 @@ if [[ $status -ne 0 && $status -ne 124 ]]; then
   cat "$error_log" >&2
   exit "$status"
 fi
-grep -F "MVH Kernel 1.1.8 build" "$serial_log"
+grep -F "MVH Kernel 1.1.8/2 build" "$serial_log"
 grep -F "MVH kernel ready" "$serial_log"
 grep -F "mvh>" "$serial_log"
 printf 'QEMU smoke passed: machine=%s memory=%sMiB cpus=%s\n' "$machine" "$memory" "$cpus"
