@@ -24,7 +24,7 @@ HOST_NET_TEST := $(BUILD)/host-net-test
 
 .DELETE_ON_ERROR:
 
-.PHONY: all clean host-test iso
+.PHONY: all clean host-test iso system-iso
 
 all: $(BUILD)/kernel.elf
 
@@ -174,6 +174,12 @@ iso: $(BUILD)/kernel.elf config/grub.cfg
 	cp $(BUILD)/kernel.elf $(BUILD)/iso/boot/kernel.elf
 	cp config/grub.cfg $(BUILD)/iso/boot/grub/grub.cfg
 	grub-mkrescue -o $(BUILD)/mvh-kernel.iso $(BUILD)/iso
+
+system-iso: $(BUILD)/kernel.elf config/grub-system.cfg
+	mkdir -p $(BUILD)/system-iso/boot/grub
+	cp $(BUILD)/kernel.elf $(BUILD)/system-iso/boot/kernel.elf
+	cp config/grub-system.cfg $(BUILD)/system-iso/boot/grub/grub.cfg
+	grub-mkrescue -o $(BUILD)/mvh-betriebsystem.iso $(BUILD)/system-iso
 
 clean:
 	rm -rf $(BUILD)
