@@ -1,14 +1,15 @@
 {
   "name": "MVH Kernel",
-  "version": "1.1.7",
+  "version": "1.1.8",
   "website": "https://kernel.mvhcloud.com/",
   "architecture": "x86_64",
   "format": "ELF64",
-  "entry": "_kernel64_start",
+  "entry": "_multiboot_start",
   "requires": [
     "x86_64-long-mode",
     "identity-mapped-first-gib",
-    "bootinfo-v2-or-legacy-memory-size-kib"
+    "bootinfo-v2-or-legacy-memory-size-kib",
+    "multiboot-v1-direct-qemu"
   ],
   "license": "MIT",
   "release_log": "CHANGELOG.md",

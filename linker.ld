@@ -1,13 +1,19 @@
-ENTRY(_kernel64_start)
+ENTRY(_multiboot_start)
 
 SECTIONS
 {
     . = 2M;
     __kernel_start = .;
 
+    .multiboot ALIGN(4) :
+    {
+        KEEP(*(.multiboot))
+    }
+
     .text ALIGN(4K) :
     {
         __text_start = .;
+        KEEP(*(.text.boot))
         KEEP(*(.text.entry))
         *(.text*)
         __text_end = .;
@@ -25,6 +31,11 @@ SECTIONS
         __data_start = .;
         *(.data*)
         __data_end = .;
+    }
+
+    .boot.bss ALIGN(4K) (NOLOAD) :
+    {
+        *(.boot.bss)
     }
 
     .bss ALIGN(4K) :
