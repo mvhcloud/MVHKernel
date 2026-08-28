@@ -1,0 +1,122 @@
+---
+title: "Kernel utility APIs"
+description: "Reference for the 150 freestanding utility functions in mvh/util.h covering memory, strings, parsing, arithmetic, bits, hashing, and endian access."
+---
+
+MVH Kernel exports 150 freestanding utility functions through `<mvh/util.h>`. Version 1.1.10 added 100 of them, expanding the validated utility surface from 50 to 150 functions.
+
+Use these functions in kernel subsystems and loadable modules instead of reimplementing common helpers. They require no C standard library, take explicit sizes or capacities, and every public function is exercised by the native test suite (`make host-test`).
+
+All functions use the `mvh_` prefix and fixed-width integer types from `<stdint.h>`.
+
+## Memory operations
+
+Byte-level operations on raw buffers. Sized variants take an explicit length, and `mvh_mem_copy_checked` rejects copies that exceed the destination capacity.
+
+| Function | Purpose |
+| --- | --- |
+| `mvh_mem_zero`, `mvh_mem_set` | Zero or fill a buffer with a byte value |
+| `mvh_mem_copy`, `mvh_mem_move` | Copy buffers; `mvh_mem_move` handles overlap |
+| `mvh_mem_copy_checked` | Copy only when the destination capacity is large enough |
+| `mvh_mem_compare`, `mvh_mem_equal` | Order or equality comparison of two buffers |
+| `mvh_mem_swap`, `mvh_mem_reverse` | Swap two buffers or reverse a buffer in place |
+| `mvh_mem_find`, `mvh_mem_count_byte` | Locate or count a byte value in a buffer |
+| `mvh_mem_is_zero`, `mvh_mem_xor` | Test for all-zero content or XOR one buffer into another |
+| `mvh_mem_fill16`, `mvh_mem_fill32` | Fill a buffer with repeated 16-bit or 32-bit words |
+| `mvh_mem_hash_fnv1a64` | 64-bit FNV-1a hash of binary data |
+
+## String handling
+
+NUL-terminated string helpers with capacity-bounded writers. Copy and concatenation functions take the destination capacity and never write past it.
+
+| Function | Purpose |
+| --- | --- |
+| `mvh_str_length`, `mvh_str_nlength`, `mvh_str_is_empty` | Length and emptiness checks |
+| `mvh_str_equal`, `mvh_str_compare`, `mvh_str_nequal`, `mvh_str_ncompare` | Case-sensitive comparison |
+| `mvh_str_case_equal`, `mvh_str_ncase_equal` | Case-insensitive comparison |
+| `mvh_str_copy`, `mvh_str_ncopy`, `mvh_str_concat`, `mvh_str_join` | Capacity-bounded copy, concatenation, and joining |
+| `mvh_str_find`, `mvh_str_find_char`, `mvh_str_rfind_char`, `mvh_str_index_char`, `mvh_str_last_index_char` | Substring and character search |
+| `mvh_str_starts_with`, `mvh_str_ends_with`, `mvh_str_contains`, `mvh_str_common_prefix` | Prefix, suffix, and containment tests |
+| `mvh_str_trim_left`, `mvh_str_trim_right`, `mvh_str_skip_space` | Whitespace trimming and skipping |
+| `mvh_str_to_upper`, `mvh_str_to_lower`, `mvh_str_reverse`, `mvh_str_replace_char`, `mvh_str_count_char` | In-place transformation |
+| `mvh_str_split_once`, `mvh_str_next_token` | Split on a separator or scan tokens through a cursor |
+| `mvh_str_normalize_slashes` | Collapse repeated slashes in path-like strings |
+| `mvh_str_hash_fnv1a32`, `mvh_str_hash_fnv1a64` | 32-bit and 64-bit FNV-1a string hashes |
+
+## ASCII classification
+
+Single-character predicates and conversions: `mvh_ascii_is_upper`, `mvh_ascii_is_lower`, `mvh_ascii_is_alpha`, `mvh_ascii_is_digit`, `mvh_ascii_is_alnum`, `mvh_ascii_is_space`, `mvh_ascii_is_hex`, `mvh_ascii_is_printable`, `mvh_ascii_is_control`, `mvh_ascii_is_punctuation`, `mvh_ascii_is_graph`, and `mvh_ascii_is_binary`, plus `mvh_ascii_to_upper`, `mvh_ascii_to_lower`, `mvh_ascii_digit_value`, and `mvh_ascii_hex_value`.
+
+## Parsing and formatting
+
+Convert between strings and integers without libc:
+
+| Function | Purpose |
+| --- | --- |
+| `mvh_parse_u64`, `mvh_parse_i64` | Parse decimal unsigned or signed 64-bit integers |
+| `mvh_parse_hex_u64` | Parse hexadecimal 64-bit integers |
+| `mvh_format_u64`, `mvh_format_hex_u64` | Format a 64-bit value as decimal or hexadecimal text into a capacity-bounded buffer |
+
+Parsers report a status through their return value and write the parsed value through the result pointer instead of returning it directly.
+
+## Arithmetic and overflow checks
+
+Integer helpers that make overflow explicit instead of wrapping silently:
+
+| Function | Purpose |
+| --- | --- |
+| `mvh_min_u32/u64/i64`, `mvh_max_u32/u64/i64`, `mvh_clamp_u32/u64/i64` | Minimum, maximum, and clamping |
+| `mvh_checked_add_u64/i64`, `mvh_checked_sub_u64`, `mvh_checked_mul_u64/i64` | Checked arithmetic that signals overflow through the return value |
+| `mvh_saturating_add_u64`, `mvh_saturating_sub_u64`, `mvh_saturating_mul_u64` | Saturating arithmetic that clamps at the type limits |
+| `mvh_align_up_u64`, `mvh_align_down_u64`, `mvh_round_up_multiple_u64`, `mvh_round_down_multiple_u64` | Alignment and rounding to multiples |
+| `mvh_ceil_div_u64`, `mvh_div_round_nearest_u64`, `mvh_average_u64` | Division helpers |
+| `mvh_gcd_u64`, `mvh_checked_lcm_u64` | Greatest common divisor and checked least common multiple |
+| `mvh_pow_u64`, `mvh_factorial_u64`, `mvh_fibonacci_u64` | Checked powers, factorials, and Fibonacci values |
+| `mvh_integer_sqrt_u64`, `mvh_log2_floor_u64`, `mvh_log2_ceil_u64` | Integer square root and base-2 logarithms |
+| `mvh_abs_i64`, `mvh_sign_i64`, `mvh_is_even_u64`, `mvh_is_odd_u64` | Sign and parity of values |
+| `mvh_is_power_of_two_u64`, `mvh_next_power_of_two_u64` | Power-of-two tests and rounding |
+
+## Bit manipulation
+
+Helpers for register fields, bitmaps, and flag words:
+
+| Function | Purpose |
+| --- | --- |
+| `mvh_bit_set64`, `mvh_bit_clear64`, `mvh_bit_toggle64`, `mvh_bit_test64` | Single-bit operations |
+| `mvh_mask_range64`, `mvh_extract_bits64`, `mvh_insert_bits64` | Build masks and read or write bit-range fields |
+| `mvh_next_set_bit64`, `mvh_previous_set_bit64` | Scan for set bits from a starting position |
+| `mvh_popcount32/64`, `mvh_parity32/64`, `mvh_count_byte64` | Population count, parity, and byte-lane counting |
+| `mvh_count_leading_zero32/64`, `mvh_count_trailing_zero32/64` | Leading and trailing zero counts |
+| `mvh_rotate_left32/64`, `mvh_rotate_right32/64` | Bit rotation |
+| `mvh_reverse_bits32/64` | Bit-order reversal |
+| `mvh_sign_extend64` | Sign-extend a value of arbitrary bit width |
+
+## Endian and unaligned access
+
+Byte-order helpers for driver and protocol code. The load and store functions accept unaligned pointers, so you can decode packet headers and on-disk structures directly from raw buffers.
+
+| Function | Purpose |
+| --- | --- |
+| `mvh_bswap16/32/64` | Byte-swap a value |
+| `mvh_load_le16/32/64`, `mvh_store_le16/32/64` | Unaligned little-endian loads and stores |
+| `mvh_load_be16/32/64`, `mvh_store_be16/32/64` | Unaligned big-endian loads and stores |
+
+## Example
+
+Decode a big-endian length field from a raw packet buffer and round it up to whole pages:
+
+```c
+#include <mvh/util.h>
+
+uint64_t frame_payload_pages(const uint8_t *packet) {
+    /* The buffer may be unaligned; mvh_load_be32 handles that. */
+    uint32_t payload_length = mvh_load_be32(packet + 4);
+
+    uint64_t aligned = mvh_align_up_u64(payload_length, 4096);
+    return aligned / 4096;
+}
+```
+
+## Testing
+
+`make host-test` runs the native test suite, which exercises every public utility API with positive, boundary, overlap, truncation, and overflow cases.
