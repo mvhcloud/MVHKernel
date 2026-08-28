@@ -45,13 +45,13 @@ static mvhfs_entry_t persistent_entries[MVHFS_MAX_FILES];
       MVH_MODULE_BUILTIN, 0u, 0, 0, 0 }
 
 static const mvh_module_descriptor_t builtin_modules[] = {
-    BUILTIN_MODULE("memory-core", "1.1.9"),
-    BUILTIN_MODULE("smp-apic", "1.1.9"),
-    BUILTIN_MODULE("scheduler", "1.1.9"),
-    BUILTIN_MODULE("dma-core", "1.1.9"),
-    BUILTIN_MODULE("virtio-block", "1.1.9"),
-    BUILTIN_MODULE("network-core", "1.1.9"),
-    BUILTIN_MODULE("vfs-mvhfs", "1.1.9")
+    BUILTIN_MODULE("memory-core", "1.1.10"),
+    BUILTIN_MODULE("smp-apic", "1.1.10"),
+    BUILTIN_MODULE("scheduler", "1.1.10"),
+    BUILTIN_MODULE("dma-core", "1.1.10"),
+    BUILTIN_MODULE("virtio-block", "1.1.10"),
+    BUILTIN_MODULE("network-core", "1.1.10"),
+    BUILTIN_MODULE("vfs-mvhfs", "1.1.10")
 };
 
 _Static_assert(MVH_CONFIG_ARCH_X86_64 == 1, "MVH Kernel requires the x86_64 config");

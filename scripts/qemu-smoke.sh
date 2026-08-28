@@ -19,7 +19,7 @@ if [[ $status -ne 0 && $status -ne 124 ]]; then
   cat "$error_log" >&2
   exit "$status"
 fi
-if ! grep -F "MVH Kernel 1.1.9 build" "$serial_log" ||
+if ! grep -F "MVH Kernel 1.1.10 build" "$serial_log" ||
    ! grep -F "SMP online CPUs: $cpus of $cpus managed" "$serial_log" ||
    ! grep -F "MVH kernel ready" "$serial_log" ||
    ! grep -F "mvh>" "$serial_log"; then

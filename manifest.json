@@ -1,6 +1,6 @@
 {
   "name": "MVH Kernel",
-  "version": "1.1.9",
+  "version": "1.1.10",
   "website": "https://kernel.mvhcloud.com/",
   "architecture": "x86_64",
   "format": "ELF64",
@@ -96,7 +96,7 @@
     "pcie-mcfg-segment-registry",
     "pcie-ecam-remapped-mmio-window",
     "firmware-memory-and-security-diagnostics",
-    "fifty-bounded-kernel-utility-apis",
+    "one-hundred-fifty-bounded-kernel-utility-apis",
     "compiler-stack-protector-strong",
     "native-utility-api-coverage",
     "mvhfs-copy-on-write-persistent-filesystem",

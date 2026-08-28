@@ -1,5 +1,15 @@
 # MVH Kernel Release Log
 
+## 1.1.10 Daily
+
+- Added 100 freestanding kernel utility APIs, increasing the validated utility surface from 50 to 150 functions
+- Added checked memory copying, memory comparison, word filling, byte counting and binary FNV-1a hashing
+- Added case-insensitive strings, token scanning, signed parsing, integer formatting and slash normalization
+- Added checked and saturating arithmetic, GCD/LCM, powers, factorials, Fibonacci values and integer square roots
+- Added bit-range extraction/insertion, bit scans, sign extension, bit reversal and byte-lane counting
+- Added unaligned little-endian and big-endian load/store helpers for driver and protocol code
+- Extended native coverage so every public utility API is exercised
+
 ## 1.1.9 Daily
 
 - Added a low-memory x86 startup trampoline and INIT-SIPI-SIPI application-processor boot sequence

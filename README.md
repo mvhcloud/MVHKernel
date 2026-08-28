@@ -1,4 +1,4 @@
-# MVH Kernel 1.1.9 Daily
+# MVH Kernel 1.1.10 Daily
 
 MVH Kernel is a standalone x86_64 kernel, not an operating-system distribution.
 
@@ -29,6 +29,7 @@ MVH Kernel is a standalone x86_64 kernel, not an operating-system distribution.
 - Kernel module ABI with dependency ordering, lifecycle states, reference counting and a versioned symbol-export registry
 - Bounds-checked ELF64 `ET_REL` module loading with x86_64 RELA relocation and unresolved-symbol rejection
 - Built-in module inventory plus `modules`, `insmod` and `rmmod` shell diagnostics
+- 150 tested freestanding utility APIs, including 100 added in 1.1.10, for safe memory operations, strings, parsing, integer overflow checks, bit manipulation, hashing and endian decoding
 
 ## Build and test
 
